@@ -53,11 +53,15 @@
       const out = [];
       for (let from = 0; ; from += 1000) {
         const { data, error } = await sb.from("journal_entries")
-          .select("id,date,kind,status,source,vendor,invoice_no,invoice_status,memo,reverses,rule_version,transaction_id,journal_lines(account,dr,cr,tax_code,tax_amount,memo,line_no)")
+          .select("id,date,kind,status,source,vendor,invoice_no,invoice_status,memo,reverses,rule_version,transaction_id,journal_lines(account,dr,cr,tax_code,tax_amount,memo,line_no),legacy_map(legacy_id),transactions(documents(storage_path))")
           .gte("date", year + "-01-01").lte("date", year + "-12-31").neq("status", "void")
           .order("date", { ascending: true }).range(from, from + 999);
         if (error) throw Object.assign(new Error(error.message), { code: "DB" });
-        out.push(...data.map((e) => ({ ...e, lines: (e.journal_lines || []).sort((a, b) => a.line_no - b.line_no), journal_lines: undefined })));
+        out.push(...data.map((e) => {
+          const { journal_lines, legacy_map, transactions, ...rest } = e;
+          return { ...rest, lines: (journal_lines || []).sort((a, b) => a.line_no - b.line_no),
+            legacyIds: (legacy_map || []).map((m) => m.legacy_id), doc: (transactions && transactions.documents && transactions.documents.storage_path) || null };
+        }));
         if (data.length < 1000) break;
       }
       return out;

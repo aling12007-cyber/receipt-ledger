@@ -80,12 +80,16 @@
     "減価償却費", "福利厚生費", "給料賃金", "外注工賃", "利子割引料", "地代家賃", "貸倒金"];
   const circ = (n) => n <= 20 ? String.fromCharCode(0x245f + n) : n <= 35 ? String.fromCharCode(0x3250 + n - 20) : String.fromCharCode(0x32b1 + n - 36);
 
-  // ctx: { entries, year, totalOf, bizOf, invOpen, invClose, depBusiness, deduction }
+  // ctx: { entries, year, totalOf, bizOf, invOpen, invClose, depBusiness, deduction, amounts? }
+  // amounts = { sales, by: { account: amount } } from the journal (Ledger.profitLoss); without it the old rows are used.
   function profitLoss(ctx) {
-    const ys = ctx.entries.filter((e) => String(e.date || "").startsWith(String(ctx.year)));
-    const sales = ys.filter((e) => e.type === "income").reduce((s, e) => s + ctx.totalOf(e), 0);
-    const by = {};
-    for (const e of ys) if (e.type !== "income") by[e.debit] = (by[e.debit] || 0) + ctx.bizOf(e);
+    let sales, by = {};
+    if (ctx.amounts) { sales = ctx.amounts.sales; by = { ...ctx.amounts.by }; }
+    else {
+      const ys = ctx.entries.filter((e) => String(e.date || "").startsWith(String(ctx.year)));
+      sales = ys.filter((e) => e.type === "income").reduce((s, e) => s + ctx.totalOf(e), 0);
+      for (const e of ys) if (e.type !== "income") by[e.debit] = (by[e.debit] || 0) + ctx.bizOf(e);
+    }
     const purchases = by["仕入高"] || 0; delete by["仕入高"];
     by["減価償却費"] = (by["減価償却費"] || 0) + (ctx.depBusiness || 0);
     const invOpen = +ctx.invOpen || 0, invClose = +ctx.invClose || 0;

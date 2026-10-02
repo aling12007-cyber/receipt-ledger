@@ -132,12 +132,10 @@ for (const c of CASES) {
       for (const [a, v] of Object.entries(ex.filing.rows || {})) assert.equal(pl.rows.find((r) => r.name === a)?.v, v, a);
     });
   }
-  if (c.legacy && ex.knownBug) {
-    test(`case ${c.id} — known: Dashboard income today`, () => {
-      assert.equal(Books.yearTotals(c.legacy.entries, 2026).income, ex.knownBug.dashboardIncome);
-    });
-    test(`case ${c.id} — Dashboard income equals 決算書 income`, { todo: "P3: Dashboard reads the trial balance — " + ex.knownBug.why }, () => {
-      assert.equal(Books.yearTotals(c.legacy.entries, 2026).income, ex.filing.income);
+  if (c.legacy && ex.filing) {
+    test(`case ${c.id} — Dashboard income equals 決算書 income (depreciation included)`, () => {
+      const dep = Filing.depreciation(c.legacy.assets || [], 2026);
+      assert.equal(Books.yearTotals(c.legacy.entries, 2026, dep.business).income, ex.filing.income);
     });
   }
 

@@ -20,13 +20,13 @@
 
   const inYear = (entries, year) => entries.filter((e) => String(e.date || "").startsWith(String(year)));
 
-  // Dashboard figures (集計 tab). NOTE: depreciation is not included here, but it is in Filing.profitLoss —
-  // a known inconsistency recorded in tests/golden (fixed when the Dashboard reads the trial balance, P3).
-  function yearTotals(entries, year) {
+  // Dashboard figures from the old rows. depBusiness = this year's depreciation (business share), which the
+  // 決算書 includes too, so both show the same income.
+  function yearTotals(entries, year, depBusiness = 0) {
     const ys = inYear(entries, year);
     const sales = ys.filter((e) => e.type === "income").reduce((s, e) => s + totalOf(e), 0);
     const exps = ys.filter((e) => e.type !== "income");
-    const expenses = exps.reduce((s, e) => s + bizOf(e), 0);
+    const expenses = exps.reduce((s, e) => s + bizOf(e), 0) + depBusiness;
     return { sales, expenses, income: sales - expenses, count: exps.length };
   }
 

@@ -268,7 +268,6 @@ export const CASES = [
     journal: YEAR_JOURNAL,
     expect: {
       filing: { kind: "blue", sales: 3300000, rows: { 地代家賃: 480000, 通信費: 132000, 消耗品費: 88000, 減価償却費: 66000, 会議費: 33000 }, expenses: 799000, income: 2501000, deduction: 650000, taxable: 1851000 },
-      knownBug: { dashboardIncome: 2567000, why: "Dashboard は減価償却費 66,000 円を引いていない" },
     },
     legacy: YEAR_LEGACY,
   },
