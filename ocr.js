@@ -10,7 +10,11 @@
       .replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
       .replace(/[，､]/g, ",").replace(/[．]/g, ".").replace(/[／]/g, "/").replace(/[：]/g, ":")
       .replace(/[％]/g, "%").replace(/[￥]/g, "¥").replace(/[－―ー−](?=\d)/g, "-")
-      .replace(/\r/g, "");
+      .replace(/\r/g, "")
+      // common OCR confusions next to digits: o/O→0, l/I/|→1, S→5 (only between/after digits)
+      .replace(/(?<=\d[,.]?\s?\d{0,2})[oO](?=\d|\b)/g, "0")
+      .replace(/(?<=\d)[oO]/g, "0").replace(/[oO](?=\d{2})/g, "0")
+      .replace(/(?<=\d)[lI|](?=\d)/g, "1");
   }
   const toInt = (s) => parseInt(String(s).replace(/[^\d]/g, ""), 10);
   // amounts like "¥1,180" "1,180円" "1180" (allow OCR spaces inside the number)
@@ -22,10 +26,13 @@
       while ((d = rd.exec(line))) { const v = parseFloat(d[1].replace(/,/g, "")); if (v > 0 && v < 1e8) out.push(v); }
       return out;
     }
-    const re = /[¥\\]?\s*(\d{1,3}(?:[,.\s]\d{3})+|\d+)\s*(?:円|-)?/g;
+    const re = /([¥\\vVwW4])?\s*(\d{1,3}(?:(?:[,.]\s?|\s)\d{3})+|\d+)\s*(?:円|-)?/g;
     let m;
     while ((m = re.exec(line))) {
-      const v = toInt(m[1]);
+      let digits = m[2];
+      // "42.310" / "v2.310": the ¥ sign was read as 4 or v → also offer the number without it
+      if (/^4\d[,.]\s?\d{3}/.test(digits)) { const alt = toInt(digits.slice(1)); if (alt > 0) out.push(alt); }
+      const v = toInt(digits);
       if (!isNaN(v) && v > 0 && v < 100000000) out.push(v);
     }
     return out;
@@ -84,6 +91,11 @@
     if ((m = t.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/))) {
       if (ok(+m[1], +m[2], +m[3])) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
     }
+    // OCR misread the first digit of the year ("9026/09/02") → trust the last two digits
+    if ((m = t.match(/(?<!\d)\d(\d)(\d{2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*(\d{1,2})(?!\d)/))) {
+      const y = 2000 + +m[2];
+      if (m[1] === "0" && Math.abs(y - fallbackYear) <= 1 && ok(y, +m[3], +m[4])) return `${y}-${pad(m[3])}-${pad(m[4])}`;
+    }
     // 26/09/30 (two-digit year)
     if ((m = t.match(/(?<!\d)(\d{2})\/(\d{1,2})\/(\d{1,2})(?!\d)/))) {
       const y = 2000 + +m[1];
@@ -120,6 +132,7 @@
   const TOTAL_WORDS = /(合\s*計|総\s*計|總\s*計|总\s*计|合\s*计|總\s*額|总\s*额|お?買\s*上|ご?請求|領収金額|お支払|支払金額|税込計|應\s*付|应\s*付|實\s*付|实\s*付|AMOUNT\s*DUE|BALANCE\s*DUE|GRAND\s*TOTAL|TOTAL)/i;
   const EXCLUDE_WORDS = /(お預|預り|お釣|釣銭|おつり|ポイント|点数|内税|消費税|税額|対象|小計|小计|找零|找續|稅額|税额|SUB\s*TOTAL|CHANGE|TENDERED|\bTAX\b|\bVAT\b|\bGST\b)/i;
   function findTotal(lines, decimals) {
+    if (!decimals) return findYenTotal(lines);
     let best = 0;
     for (const l of lines) {
       if (TOTAL_WORDS.test(l) && !EXCLUDE_WORDS.test(l)) {
@@ -132,6 +145,33 @@
     for (const l of lines) {
       if (EXCLUDE_WORDS.test(l) || !(decimals ? /[$€£₩元\d]/ : /[¥\\円]/).test(l)) continue;
       for (const v of amountsIn(l, decimals)) best = Math.max(best, v);
+    }
+    return best;
+  }
+
+  // Yen total by evidence: the real total is usually printed several times (合計, 対象額, お預り,
+  // card line) and equals 小計 + 税 (外税) — robust when OCR garbles the 合計 label itself.
+  function findYenTotal(lines) {
+    const info = new Map();
+    const add = (v, key) => { if (v < 10 || v >= 10000000) return; const o = info.get(v) || { n: 0, total: 0, excl: 0 }; o.n++; o[key]++; info.set(v, o); };
+    for (const l of lines) {
+      const isTotal = TOTAL_WORDS.test(l) && !EXCLUDE_WORDS.test(l);
+      const isExcl = /(お預|預り|お釣|釣銭|おつり|ポイント|点数|找零)/.test(l);
+      for (const v of amountsIn(l)) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
+    }
+    if (!info.size) return 0;
+    const vals = [...info.keys()];
+    const set = new Set(vals);
+    const near = (a, b) => Math.abs(a - b) <= 1;
+    let best = 0, bestScore = -Infinity;
+    for (const v of vals) {
+      const o = info.get(v);
+      let score = o.n + 3 * o.total - 2 * (o.excl === o.n ? 1 : 0);
+      // v = subtotal + exclusive tax (10% or 8%)
+      for (const a of vals) { const b = v - a; if (b > 0 && set.has(b) && (near(b, Math.round(a * 0.1)) || near(b, Math.round(a * 0.08)) || near(b, Math.floor(a * 0.1)) || near(b, Math.floor(a * 0.08)))) { score += 4; break; } }
+      // inclusive tax printed: (内消費税 ¥210) where 210 ≈ v*10/110
+      for (const t of vals) if (t < v && (near(t, Math.floor(v * 10 / 110)) || near(t, Math.floor(v * 8 / 108)))) { score += 2; break; }
+      if (score > bestScore || (score === bestScore && v > best)) { best = v; bestScore = score; }
     }
     return best;
   }
@@ -157,26 +197,34 @@
     return 0;
   }
 
+  const ADDRESS = /(〒|東京都|北海道|大阪府|京都府|.{1,3}県|.{1,4}[市区町村].{0,8}\d|TEL|電話|☎)/i;
+  function vendorOk(l) {
+    const s = l.replace(/[|_~=*#<>「」【】()（）\[\]]/g, "").replace(/(?<=[^\x00-\x7F])\s+(?=[^\x00-\x7F])/g, "").replace(/\s+/g, " ").trim();
+    if (s.length < 2 || s.length > 30) return "";
+    if (/(領収|レシート|receipt|電話|TEL|〒|\d{2,4}-\d{2,4}-\d{3,4}|登録番号|^T\d|^\d)/i.test(s)) return "";
+    const letters = (s.match(/[A-Za-z\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+    return letters / s.replace(/\s/g, "").length >= 0.7 ? s : "";
+  }
   function findVendor(lines) {
-    for (const l of lines.slice(0, 8)) {
-      const s = l.replace(/[|_~=*#<>「」【】()（）]/g, "").replace(/(?<=[^\x00-\x7F])\s+(?=[^\x00-\x7F])/g, "").replace(/\s+/g, " ").trim();
-      if (s.length < 2 || s.length > 30) continue;
-      if (/(領収|レシート|receipt|電話|TEL|〒|\d{2,4}-\d{2,4}-\d{3,4}|登録番号|^T\d)/i.test(s)) continue;
-      const letters = (s.match(/[A-Za-z぀-ヿ一-鿿]/g) || []).length;
-      if (letters / s.length >= 0.6) return s;
-    }
+    const head = lines.slice(0, 12);
+    const ai = head.findIndex((l) => ADDRESS.test(l));
+    for (let i = ai - 1; ai > 0 && i >= Math.max(0, ai - 2); i--) { const v = vendorOk(head[i]); if (v) return v; }
+    const ri = head.findIndex((l) => /(領\s*収\s*[書証]|レシート|RECEIPT)/i.test(l));
+    for (let i = ri + 1; ri >= 0 && i <= Math.min(head.length - 1, ri + 2); i++) { const v = vendorOk(head[i]); if (v) return v; }
+    for (const l of lines.slice(0, 8)) { const v = vendorOk(l); if (v) return v; }
     return "";
   }
 
+
   const ACCOUNT_RULES = [
     [/(タクシー|交通|JR|鉄道|駅|乗車|SUICA|PASMO|ICOCA|バス|新幹線|航空|高速|駐車|パーキング|ガソリン|ENEOS|出光|コスモ石油)/i, "旅費交通費"],
-    [/(郵便|切手|レターパック|ゆうパック|携帯|docomo|ドコモ|au|softbank|ソフトバンク|楽天モバイル|通信)/i, "通信費"],
+    [/(郵便|切手|レターパック|ゆうパック|携帯|docomo|ドコモ|KDDI|au by|softbank|ソフトバンク|楽天モバイル|通信料)/i, "通信費"],
     [/(ヤマト|佐川|宅急便|宅配|運輸)/, "荷造運賃"],
     [/(書店|書房|ブック|BOOK|紀伊國屋|丸善|ジュンク|蔦屋|TSUTAYA|新聞)/i, "新聞図書費"],
     [/(収入印紙|印紙)/, "租税公課"],
     [/(振込手数料|手数料)/, "支払手数料"],
     [/(カフェ|CAFE|CAFÉ|COFFEE|コーヒー|珈琲|喫茶|咖啡|星巴克|スターバックス|STARBUCKS|ドトール|タリーズ|コメダ|ルノアール)/i, "会議費"],
-    [/(居酒屋|焼肉|寿司|鮨|料亭|ダイニング|レストラン|酒場|BAR)/i, "接待交際費"],
+    [/(居酒屋|焼肉|寿司|鮨|料亭|ダイニング|レストラン|酒場|\bBAR\b)/i, "接待交際費"],
     [/(電気|ガス|水道)/, "水道光熱費"],
     [/(セミナー|研修|講座|受講)/, "研修費"],
     [/(ヨドバシ|ビックカメラ|ヤマダ|ダイソー|セリア|ロフト|LOFT|ハンズ|無印|文具|事務用品|アスクル|ASKUL|AMAZON|アマゾン|ホームセンター|コーナン|カインズ)/i, "消耗品費"],
@@ -268,19 +316,58 @@
   // language → Tesseract models used for the second, focused pass
   const PASS2 = { zh: "chi_tra+chi_sim+eng", en: "eng" };
   // Grayscale + contrast stretch helps Tesseract on thermal receipts.
+  // Find the receipt paper (bright area) in a grey image; returns a crop box or null.
+  function otsu(hist, total) {
+    let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sumB = 0, wB = 0, best = 0, t = 128;
+    for (let i = 0; i < 256; i++) {
+      wB += hist[i]; if (!wB) continue; const wF = total - wB; if (!wF) break;
+      sumB += i * hist[i]; const mB = sumB / wB, mF = (sum - sumB) / wF, v = wB * wF * (mB - mF) * (mB - mF);
+      if (v > best) { best = v; t = i; }
+    }
+    return t;
+  }
+  function paperBox(g, W, H) {
+    const st = 4, sw = Math.floor(W / st), sh = Math.floor(H / st), hist = new Array(256).fill(0);
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) hist[g[y * st * W + x * st] | 0]++;
+    const t = otsu(hist, sw * sh);
+    const rowOk = [], colCnt = new Array(sw).fill(0);
+    for (let y = 0; y < sh; y++) { let c = 0; for (let x = 0; x < sw; x++) if (g[y * st * W + x * st] > t) { c++; colCnt[x]++; } rowOk.push(c / sw > 0.25); }
+    const ys = rowOk.map((v, i) => (v ? i : -1)).filter((i) => i >= 0), xs = colCnt.map((c, i) => (c / sh > 0.25 ? i : -1)).filter((i) => i >= 0);
+    if (!ys.length || !xs.length) return null;
+    const pad = Math.round(0.01 * Math.max(W, H));
+    const x0 = Math.max(0, xs[0] * st - pad), x1 = Math.min(W, (xs[xs.length - 1] + 1) * st + pad);
+    const y0 = Math.max(0, ys[0] * st - pad), y1 = Math.min(H, (ys[ys.length - 1] + 1) * st + pad);
+    if ((x1 - x0) * (y1 - y0) < 0.12 * W * H) return null; // not confident: keep the whole photo
+    return { x0, y0, w: x1 - x0, h: y1 - y0 };
+  }
+  // Crop to the paper, enlarge so text is big enough for Tesseract, grey + 1–99% contrast stretch.
+  // (Tested on real receipts: hard black/white thresholding hurt thin Latin shop names, so we keep grey.)
   async function prepare(blob) {
     const url = URL.createObjectURL(blob);
     try {
       const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-      const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.naturalWidth * scale); c.height = Math.round(img.naturalHeight * scale);
-      const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0, c.width, c.height);
-      const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data;
-      let lo = 255, hi = 0; const g = new Uint8ClampedArray(p.length / 4);
-      for (let i = 0, j = 0; i < p.length; i += 4, j++) { const v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]; g[j] = v; if (v < lo) lo = v; if (v > hi) hi = v; }
+      const s0 = Math.min(1, 3000 / Math.max(img.naturalWidth, img.naturalHeight));
+      const W = Math.round(img.naturalWidth * s0), H = Math.round(img.naturalHeight * s0);
+      const c0 = document.createElement("canvas"); c0.width = W; c0.height = H;
+      const x0c = c0.getContext("2d", { willReadFrequently: true }); x0c.drawImage(img, 0, 0, W, H);
+      const p0 = x0c.getImageData(0, 0, W, H).data, g = new Float32Array(W * H);
+      for (let i = 0, j = 0; i < p0.length; i += 4, j++) g[j] = 0.299 * p0[i] + 0.587 * p0[i + 1] + 0.114 * p0[i + 2];
+      const box = paperBox(g, W, H) || { x0: 0, y0: 0, w: W, h: H };
+      // target ~1600 px across the paper; cap total size for phones
+      let sc = 1600 / box.w; sc = Math.min(sc, Math.sqrt(16e6 / (box.w * box.h)));
+      const c = document.createElement("canvas"); c.width = Math.round(box.w * sc); c.height = Math.round(box.h * sc);
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(c0, box.x0, box.y0, box.w, box.h, 0, 0, c.width, c.height);
+      const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data, n = p.length / 4, hist = new Array(256).fill(0);
+      const gg = new Uint8ClampedArray(n);
+      for (let i = 0, j = 0; i < p.length; i += 4, j++) { const v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]; gg[j] = v; hist[gg[j]]++; }
+      let acc = 0, lo = 0, hi = 255;
+      for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc >= n * 0.01) { lo = i; break; } }
+      acc = 0; for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc >= n * 0.01) { hi = i; break; } }
       const k = 255 / Math.max(1, hi - lo);
-      for (let i = 0, j = 0; i < p.length; i += 4, j++) { const v = (g[j] - lo) * k; p[i] = p[i + 1] = p[i + 2] = v; }
+      for (let i = 0, j = 0; i < p.length; i += 4, j++) { const v = (gg[j] - lo) * k; p[i] = p[i + 1] = p[i + 2] = v; }
       ctx.putImageData(d, 0, 0);
       return c;
     } finally { URL.revokeObjectURL(url); }
@@ -288,7 +375,9 @@
   const cleanText = (t) => (t || "").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, ""); // drop OCR spaces between CJK chars
   async function readReceipt(blob, opts) {
     progressCb = opts && opts.onProgress;
-    const canvas = await prepare(blob);
+    // Prefer the original full-resolution photo; fall back to the shrunk copy (e.g. HEIC the browser can't decode).
+    let canvas;
+    try { canvas = await prepare((opts && opts.original) || blob); } catch (e) { canvas = await prepare(blob); }
     // Pass 1: Japanese + English covers almost every receipt issued in Japan.
     let text = cleanText((await (await getWorker("jpn+eng")).recognize(canvas)).data.text);
     const lang = scriptOf(text);
@@ -302,7 +391,7 @@
     return r;
   }
 
-  const api = { parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency };
+  const api = { parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);

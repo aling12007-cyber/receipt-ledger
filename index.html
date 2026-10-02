@@ -578,7 +578,7 @@ async function scanReceipt(blob,q){
   if(!aiEnabled){
     const el=()=>document.getElementById("prog_"+q.id);
     try{
-      return await window.ReceiptOCR.readReceipt(blob,{year,
+      return await window.ReceiptOCR.readReceipt(blob,{year,original:q.file,
         onLanguage:l=>{q.langMsg=t("rereading",{l:t("lang_"+l)});const e=el();if(e)e.textContent=q.langMsg},
         onProgress:m=>{const e=el();if(!e)return;const pre=q.langMsg?q.langMsg+" ":"";
         e.textContent=pre+(m.status==="recognizing text"?Math.round((m.progress||0)*100)+"%":(/load|initializ/.test(m.status||"")?t("ocrLoading"):""))}});
