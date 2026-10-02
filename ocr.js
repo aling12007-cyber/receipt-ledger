@@ -218,7 +218,7 @@
 
   const ACCOUNT_RULES = [
     [/(タクシー|交通|JR|鉄道|駅|乗車|SUICA|PASMO|ICOCA|バス|新幹線|航空|高速|駐車|パーキング|ガソリン|ENEOS|出光|コスモ石油)/i, "旅費交通費"],
-    [/(郵便|切手|レターパック|ゆうパック|携帯|docomo|ドコモ|KDDI|au by|softbank|ソフトバンク|楽天モバイル|通信料)/i, "通信費"],
+    [/(郵便|切手|レターパック|ゆうパック|携帯|docomo|ドコモ|KDDI|au by|softbank|ソフトバンク|楽天モバイル|通信料|月額プラン|年額プラン|サブスク|SUBSCRIPTION|ADOBE|CREATIVE CLOUD|GOOGLE WORKSPACE|MICROSOFT 365|OFFICE 365|AWS|AMAZON WEB SERVICES|さくらインターネット|エックスサーバー|XSERVER|お名前\.com|ドメイン|サーバー|CHATGPT|OPENAI|ANTHROPIC|CLAUDE|CANVA|ZOOM|SLACK|NOTION|DROPBOX|FIGMA)/i, "通信費"],
     [/(ヤマト|佐川|宅急便|宅配|運輸)/, "荷造運賃"],
     [/(書店|書房|ブック|BOOK|紀伊國屋|丸善|ジュンク|蔦屋|TSUTAYA|新聞)/i, "新聞図書費"],
     [/(収入印紙|印紙)/, "租税公課"],

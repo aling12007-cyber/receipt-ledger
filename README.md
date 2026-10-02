@@ -82,6 +82,8 @@
 ```
 index.html            網站本體（介面、記帳邏輯、三語翻譯）
 filing.js             申報準備：損益計算書、減価償却、貸借対照表的計算
+imports.js            PDF（pdf.js）、HEIC 轉檔、Google Drive 匯入
+pdfjs/                pdf.js 的日文字型對照檔（cmaps、standard_fonts，Apache-2.0）
 ocr.js                免費模式：裝置上的 OCR（自動判斷日文／英文／中文）與收據解析規則
 api/scan.js           伺服器：驗證登入後，把收據照片送給 Claude 讀取
 api/config.js         伺服器：提供瀏覽器公開的 Supabase 設定
@@ -90,6 +92,25 @@ manifest.webmanifest  加到主畫面用的 App 設定
 icon-*.png, icon.svg  App 圖示
 vercel.json           伺服器設定（AI 辨識最長 60 秒）
 ```
+
+## （可選）Google Drive 匯入
+
+設定後，「拍收據」頁會出現 **Google Drive** 按鈕，可一次勾選多張 JPG／PNG／HEIC／PDF 收據。網站只用 `drive.file` 權限，**只能讀取你勾選的檔案**，看不到 Drive 其他內容。已匯入過的檔案會自動略過。
+
+1. 打開 <https://console.cloud.google.com/>，上方專案選單 → **新增專案**，名稱 `receipt-ledger` → 建立。
+2. 左側 **API 和服務 → 程式庫**，分別搜尋並 **啟用**：`Google Drive API`、`Google Picker API`。
+3. 左側 **Google Auth Platform**（或「OAuth 同意畫面」）→ 開始設定：應用程式名稱 `Receipt Ledger`、支援 email 填你的 Gmail、目標對象選 **外部**，並在「測試使用者」加入你自己的 Gmail。
+4. **用戶端（Clients）→ 建立用戶端** → 類型 **網頁應用程式** →「已授權的 JavaScript 來源」加入 `https://receipt-ledger-pi.vercel.app` → 建立，複製 **用戶端 ID**。
+5. **API 和服務 → 憑證 → 建立憑證 → API 金鑰** → 編輯：應用程式限制選 **HTTP 參照網址** `https://receipt-ledger-pi.vercel.app/*`，API 限制只勾 **Google Picker API**，複製 **API 金鑰**。
+6. 資訊主頁的「專案資訊」裡複製 **專案編號**（一串數字）。
+7. Vercel 新增環境變數 `GOOGLE_CLIENT_ID`、`GOOGLE_API_KEY`、`GOOGLE_APP_ID`（=專案編號），然後 Redeploy。
+
+應用程式維持「測試中」即可（只有你自己用）；測試模式下 Google 每 7 天會要求重新同意一次，屬正常現象。
+
+## PDF 與 HEIC
+
+- **PDF**：電子收據 PDF 大多內含文字，會直接讀取，不經 OCR，最準確。掃描型 PDF 則轉成圖片再辨識。PDF 原檔原樣保存（電子帳簿保存法「電子取引データ」需保存原始電子檔）。
+- **HEIC**：iPhone 的 HEIC 照片在 Chrome 等瀏覽器會自動轉成 JPG。
 
 ## 報稅（申報準備分頁）
 

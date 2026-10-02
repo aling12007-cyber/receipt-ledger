@@ -7,5 +7,9 @@ export default function handler(req, res) {
     supabaseUrl: process.env.SUPABASE_URL || "",
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
     aiEnabled: Boolean(process.env.ANTHROPIC_API_KEY),
+    // Google Drive import (optional). These are public identifiers, restricted to this site in Google Cloud.
+    googleClientId: process.env.GOOGLE_CLIENT_ID || "",
+    googleApiKey: process.env.GOOGLE_API_KEY || "",
+    googleAppId: process.env.GOOGLE_APP_ID || "",
   });
 }
