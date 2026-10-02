@@ -172,6 +172,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/ocr.js"></script>
+<script src="/books.js"></script>
 <script src="/filing.js"></script>
 <script src="/imports.js"></script>
 </body>
@@ -546,18 +547,7 @@ function fillYears(){
 $("#yearSel").addEventListener("change",e=>{year=+e.target.value;render()});
 
 // ===== bookkeeping =====
-const totalOf=e=>(+e.amt10||0)+(+e.amt8||0)+(+e.amt0||0);
-const ratioOf=e=>Math.min(100,Math.max(0,e.bizRatio===""||e.bizRatio==null?100:+e.bizRatio))/100;
-const bizOf=e=>e.type==="income"?totalOf(e):Math.round(totalOf(e)*ratioOf(e));
-function linesOf(e){
-  const total=totalOf(e);
-  if(e.type==="income") return [{dr:e.debit||"普通預金",cr:"売上高",amt:total}];
-  const biz=bizOf(e),priv=total-biz,cr=e.credit||"事業主借";
-  if(cr==="事業主借") return [{dr:e.debit,cr,amt:biz}];
-  const L=[{dr:e.debit,cr,amt:biz}];
-  if(priv>0) L.push({dr:"事業主貸",cr,amt:priv,priv:true});
-  return L;
-}
+const {totalOf,ratioOf,bizOf,linesOf}=Books; // books.js: shared with tests/
 const receiptTotal=e=>e.assetId?entries.filter(x=>x.assetId===e.assetId).reduce((s,x)=>s+totalOf(x),0)||totalOf(e):totalOf(e);
 const qualOK=e=>isQualified(e.invoiceNo)||(settings.shogaku==="1"&&receiptTotal(e)<10000);
 
@@ -955,9 +945,8 @@ function renderJournal(){
 // ===== summary =====
 function renderSummary(){
   const ys=yearEntries();
-  const sales=ys.filter(e=>e.type==="income").reduce((s,e)=>s+totalOf(e),0);
-  const exps=ys.filter(e=>e.type!=="income");const expTotal=exps.reduce((s,e)=>s+bizOf(e),0);
-  const inc=sales-expTotal;const ded=DEDUCT[settings.filing]||0;
+  const exps=ys.filter(e=>e.type!=="income");
+  const {sales,expenses:expTotal,income:inc}=Books.yearTotals(entries,year);const ded=DEDUCT[settings.filing]||0;
   $("#kSales").textContent=yen(sales);$("#kExp").textContent=yen(expTotal);$("#kInc").textContent=yen(inc);$("#kIncWrap").classList.toggle("neg",inc<0);
   $("#kAfterLabel").textContent=t(isBlue()?"kAfterBlue":"kAfterWhite");
   $("#kAfter").textContent=yen(isBlue()?Math.max(0,inc-Math.min(ded,Math.max(0,inc))):inc);
@@ -970,9 +959,7 @@ function renderSummary(){
   const rows=EXPENSE_ACCOUNTS.filter(a=>by[a]).map(a=>[a,by[a]]);
   $("#accTable tbody").innerHTML=rows.length?rows.map(([a,o])=>`<tr><td>${accHTML(a)}</td><td class="r num">${o.n}</td><td class="r num">${yen(o.v)}</td><td class="r num">${expTotal?(o.v/expTotal*100).toFixed(1):"0.0"}%</td></tr>`).join(""):`<tr><td colspan="4" class="muted">${t("noExp",{y:year})}</td></tr>`;
   $("#accTable tfoot").innerHTML=rows.length?`<tr><td>${t("expTotal")}</td><td class="r num">${exps.length}</td><td class="r num">${yen(expTotal)}</td><td class="r num">100%</td></tr>`:"";
-  let q10=0,q8=0,n10=0,n8=0,d10=0,d8=0;
-  const pct=d=>d<"2026-10-01"?.8:(d<"2029-10-01"?.5:0);
-  exps.forEach(e=>{const r=ratioOf(e);if(qualOK(e)){q10+=e.amt10*r;q8+=e.amt8*r}else{n10+=e.amt10*r;n8+=e.amt8*r;d10+=e.amt10*r*pct(e.date);d8+=e.amt8*r*pct(e.date)}});
+  const {q10,q8,n10,n8,d10,d8}=Books.inputTaxBases(entries,year,qualOK);
   $("#ctaxTable tbody").innerHTML=`<tr><td>${t("rowQ")}</td><td class="r num">${yen(q10)}</td><td class="r num">${yen(q8)}</td></tr><tr><td>${t("rowN")}</td><td class="r num">${yen(n10)}</td><td class="r num">${yen(n8)}</td></tr><tr><td>${t("rowND")}</td><td class="r num">${yen(d10)}</td><td class="r num">${yen(d8)}</td></tr>`;
   $("#ctaxNote").textContent=t("ctax_"+settings.ctax);
 }

@@ -378,7 +378,7 @@
   const ITEM_SKIP = /(領\s*収|レシート|RECEIPT|TEL|電話|〒|登録番号|レジ|担当|取引|No[.:]|伝票|ご利用|ありがとう|お待ち|またの|お越し|営業時間|店|様|^\s*\d+\s*[/.-]\s*\d+|品目|数量|金額|単価|発行日|お支払|支払方法|カード|現金|明細|控え?$)/i;
   const DATE_LINE = /((?<!\d)(20\d{2}|令和\s*\d{1,2}|R\s*\d{1,2})\s*[^\d\n]{1,3}\s*\d{1,2}\s*[^\d\n]{1,3}\s*\d{1,2}|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2})/i;
   function cleanName(l) {
-    let n = l.replace(/[¥\\￥$]\s*[\d,.\s]*\d|\d[\d,]*\s*円|\d+\.\d{1,2}|[×xX＊*]\s*\d+|\d+\s*(?:点|個|コ|本|枚|杯|人前|名)|[※★◆●○■□()（）\[\]{}|<>~=_]/g, " ")
+    let n = l.replace(/[¥\\￥$]\s*[\d,.\s]*\d|\d[\d,]*\s*円|(?<![\d.])\d{1,3}(?:,\d{3})+(?![\d])|\d+\.\d{1,2}|[×xX＊*]\s*\d+|\d+\s*(?:点|個|コ|本|枚|杯|人前|名)|[※★◆●○■□()（）\[\]{}|<>~=_]/g, " ")
       .replace(/(^|\s)\d{1,4}(?=\s|$)/g, " ").replace(/\s+/g, " ").trim();
     // OCR junk: drop trailing 1–2 letter Latin fragments ("Butter MOMO ua" → "Butter MOMO")
     n = n.replace(/(\s+[A-Za-z]{1,2})+$/, "").trim();
