@@ -136,6 +136,9 @@
         .addView(docs)
         .enableFeature(P.Feature.MULTISELECT_ENABLED)
         .setOAuthToken(accessToken).setDeveloperKey(cfg.googleApiKey).setAppId(cfg.googleAppId)
+        // Tell the picker which site is calling: its iframe lives on docs.google.com, and without this the
+        // API key's website restriction can see the wrong origin and report "developer key is invalid".
+        .setOrigin(location.protocol + "//" + location.host)
         .setLocale(locale || "ja").setMaxItems(50)
         .setCallback((d) => {
           const a = d[P.Response.ACTION];
