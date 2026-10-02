@@ -266,6 +266,81 @@
   }
 
   // Returns the same shape as the server's AI reader.
+  // ---------- 摘要 (summary label, Japanese) and item list ----------
+  // A short generic label for the 摘要 column, chosen from the account and what the receipt says.
+  function summaryFor(account, text) {
+    const t = String(text || "");
+    const by = (pairs, dflt) => { for (const [re, label] of pairs) if (re.test(t)) return label; return dflt; };
+    switch (account) {
+      case "会議費": return by([[/(コーヒー|珈琲|カフェ|COFFEE|CAFE|ラテ|紅茶)/i, "打合せ喫茶代"]], "打合せ飲食代");
+      case "接待交際費": return by([[/(贈答|ギフト|お中元|お歳暮|花束|手土産)/, "贈答品代"], [/(慶弔|香典|祝儀)/, "慶弔費"]], "接待飲食代");
+      case "旅費交通費": return by([[/タクシー|TAXI|運賃/i, "タクシー代"], [/新幹線/, "新幹線代"], [/(航空|AIR|ANA|JAL|PEACH)/i, "航空券代"], [/(ホテル|HOTEL|宿泊|旅館)/i, "宿泊費"], [/(駐車|パーキング|PARKING)/i, "駐車場代"], [/(ガソリン|ENEOS|出光|コスモ)/i, "ガソリン代"], [/(高速|ETC)/i, "高速道路代"], [/(JR|鉄道|電車|SUICA|PASMO|ICOCA|乗車券|定期)/i, "電車代"], [/バス/, "バス代"]], "交通費");
+      case "通信費": return by([[/(切手|はがき|ハガキ|レターパック|郵便|ゆうパック)/, "郵送料"], [/(携帯|スマホ|docomo|ドコモ|softbank|楽天モバイル|KDDI)/i, "携帯電話料金"], [/(光回線|インターネット|プロバイダ|Wi-?Fi)/i, "インターネット料金"], [/(サーバー|ドメイン|XSERVER|さくら|AWS)/i, "サーバー・ドメイン代"]], /(月額|年額|サブスク|SUBSCRIPTION|ADOBE|GOOGLE|MICROSOFT|CHATGPT|OPENAI|CLAUDE|CANVA|ZOOM|SLACK|NOTION|DROPBOX|FIGMA)/i.test(t) ? "ソフトウェア利用料" : "通信費");
+      case "消耗品費": return by([[/(文具|ボールペン|ノート|コピー用紙|用紙|インク|トナー|ファイル|封筒|テープ)/, "事務用品代"], [/(USB|ケーブル|マウス|キーボード|電池|充電)/i, "PC周辺機器"], [/(洗剤|ティッシュ|トイレット|清掃)/, "日用品代"]], "消耗品代");
+      case "新聞図書費": return by([[/新聞/, "新聞代"], [/雑誌/, "雑誌代"]], "書籍代");
+      case "支払手数料": return by([[/振込/, "振込手数料"], [/(決済|カード)/, "決済手数料"]], "支払手数料");
+      case "水道光熱費": return by([[/電気/, "電気代"], [/ガス/, "ガス代"], [/水道/, "水道代"]], "水道光熱費");
+      case "荷造運賃": return "配送料";
+      case "広告宣伝費": return "広告宣伝費";
+      case "地代家賃": return by([[/(駐車場|パーキング)/, "駐車場賃料"], [/(コワーキング|シェアオフィス)/, "コワーキング利用料"]], "家賃");
+      case "租税公課": return by([[/印紙/, "収入印紙代"]], "租税公課");
+      case "研修費": return "セミナー参加費";
+      case "修繕費": return "修理代";
+      case "損害保険料": return "保険料";
+      case "外注工賃": return "外注費";
+      case "仕入高": return "商品仕入";
+      default: return account || "";
+    }
+  }
+
+  // Item lines between the header and the 小計/合計 block: "Chicken MOMO ×1", "おにぎり ×2" …
+  const ITEM_STOP = /(小\s*計|小计|合\s*計|合计|総\s*計|總\s*計|お?買\s*上|お会計|ご?請求|SUB\s*TOTAL|TOTAL|お預|お釣|対象|消費税|内税|外税)/i;
+  const ITEM_SKIP = /(領\s*収|レシート|RECEIPT|TEL|電話|〒|登録番号|レジ|担当|取引|No[.:]|伝票|ご利用|ありがとう|お待ち|またの|お越し|営業時間|店|様|^\s*\d+\s*[/.-]\s*\d+|品目|数量|金額|単価|発行日|お支払|支払方法|カード|現金)/i;
+  const DATE_LINE = /((20\d{2}|令和\s*\d{1,2}|R\s*\d{1,2})\s*[年./-]\s*\d{1,2}|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2})/i;
+  function cleanName(l) {
+    let n = l.replace(/[¥\\￥$]\s*[\d,.\s]*\d|\d[\d,]*\s*円|\d+\.\d{1,2}|[×xX＊*]\s*\d+|\d+\s*(?:点|個|コ|本|枚|杯|人前|名)|[※★◆●○■□()（）\[\]{}|<>~=_]/g, " ")
+      .replace(/(^|\s)\d{1,4}(?=\s|$)/g, " ").replace(/\s+/g, " ").trim();
+    // OCR junk: drop trailing 1–2 letter Latin fragments ("Butter MOMO ua" → "Butter MOMO")
+    n = n.replace(/(\s+[A-Za-z]{1,2})+$/, "").trim();
+    return n;
+  }
+  function plausibleName(n) {
+    const compact = n.replace(/\s/g, "");
+    if (compact.length < 2 || compact.length > 30) return false;
+    const cjk = (compact.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+    const latin = (compact.match(/[A-Za-z]/g) || []).length;
+    if ((cjk + latin) / compact.length < 0.7) return false;
+    if (cjk < 2 && cjk + latin < 3) return false; // "j 点", "AE"…
+    if (!cjk && !/[A-Za-z]{3,}/.test(n)) return false; // Latin needs a real word
+    return true;
+  }
+  // Item lines after the date, up to the 小計/合計 block: "Chicken MOMO×1", "生ビール×2" …
+  function extractItems(lines, vendor, total) {
+    const di = lines.findIndex((l) => DATE_LINE.test(l));
+    const out = [];
+    let sum = 0, priced = 0, last = null;
+    for (let i = di >= 0 ? di + 1 : 1; i < lines.length && out.length < 15; i++) {
+      const l = lines[i].trim();
+      if (ITEM_STOP.test(l)) { if (out.length) break; continue; }
+      const amts = amountsIn(l);
+      // reached the subtotal / total even if its label was garbled by OCR
+      if (out.length && amts.length && ((total && amts.includes(total) && priced >= 1 && out.length > 1) || (priced >= 2 && amts.some((a) => Math.abs(a - sum) <= Math.max(1, sum * 0.1))))) break;
+      if (ADDRESS.test(l) || /\d{2,4}-\d{2,4}-\d{3,4}|\d{8,}/.test(l)) continue;
+      let qty = (l.match(/(?:[×xX＊*]\s*(\d{1,3})|(\d{1,3})\s*(?:点|個|コ|本|枚|杯|人前|名))/) || []).slice(1).find(Boolean);
+      if (!qty) { const m = l.match(/\s(\d{1,2})\s+[¥\\￥]?\s*\d[\d,]*\s*$/) || l.match(/\s(\d{1,2})\s*$/); if (m) qty = m[1]; }
+      const name = cleanName(l);
+      if (plausibleName(name) && !ITEM_SKIP.test(name) && name !== vendor) {
+        last = { name, qty: qty ? +qty : null };
+        out.push(last);
+        if (amts.length) { sum += Math.max(...amts); priced++; last.priced = true; }
+      } else if (last && amts.length && !last.priced) {
+        if (qty && !last.qty) last.qty = +qty; // quantity / price printed on the line below the name
+        sum += Math.max(...amts); priced++; last.priced = true;
+      }
+    }
+    return out.map((it) => it.name + (it.qty ? "×" + it.qty : ""));
+  }
+
   function parseReceiptText(raw, opts) {
     const year = (opts && opts.year) || new Date().getFullYear();
     const text = normalize(raw);
@@ -275,8 +350,9 @@
     if (currency !== "JPY") {
       // Overseas purchase: amounts are not yen and are outside Japanese consumption tax.
       const date = findDate(text, year), vendor = findVendor(lines);
+      const acc = guessAccount(vendor, text);
       return {
-        date: date || null, vendor, invoice_no: null, items: "",
+        date: date || null, vendor, invoice_no: null, items: summaryFor(acc.account, text), item_list: extractItems(lines, vendor, 0),
         amount_10: 0, amount_8: 0, amount_other: 0, total: 0,
         foreign_total: findTotal(lines, true), currency, language: lang,
         payment: guessPayment(text), ...(({ account, hint }) => ({ account, hint }))(guessAccount(vendor, text)),
@@ -301,7 +377,7 @@
       date: date || null,
       vendor,
       invoice_no: findInvoiceNo(text) || null,
-      items: "",
+      items: summaryFor(guessAccount(vendor, text).account, text), item_list: extractItems(lines, vendor, total),
       amount_10: a10, amount_8: a8, amount_other: other, total,
       payment: guessPayment(text),
       ...(({ account, hint }) => ({ account, hint }))(guessAccount(vendor, text)),
@@ -411,7 +487,7 @@
     return r;
   }
 
-  const api = { parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare };
+  const api = { parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -566,7 +566,7 @@ function formHTML(d,p){
     <label class="f" for="${id("date")}">${t("date")}<input type="date" id="${id("date")}" data-k="date" value="${esc(d.date)}"></label>
     <label class="f span2" for="${id("vendor")}">${t(inc?"client":"vendor")}<input id="${id("vendor")}" data-k="vendor" value="${esc(d.vendor)}"></label>
     ${inc?"":`<label class="f" for="${id("invoiceNo")}">${t("regNo")}<input id="${id("invoiceNo")}" data-k="invoiceNo" value="${esc(d.invoiceNo)}" placeholder="T1234567890123"></label>`}
-    <label class="f span2" for="${id("items")}">${t("items")}<input id="${id("items")}" data-k="items" value="${esc(d.items)}"></label>
+    <label class="f span2" for="${id("items")}">${t("items")}<input id="${id("items")}" data-k="items" value="${esc(d.items)}" data-auto="${esc(d.itemsAuto||"")}"></label>
     <label class="f" for="${id("amt10")}">${t("a10")}${num("amt10")}</label>
     <label class="f" for="${id("amt8")}">${t("a8")}${num("amt8")}</label>
     <label class="f" for="${id("amt0")}">${t("a0")}${num("amt0")}</label>
@@ -595,7 +595,15 @@ function updatePreview(root,base){
   }
   root.querySelector("[data-preview]").innerHTML=h;
 }
-function wireForm(root,base){root.addEventListener("input",()=>updatePreview(root,base));updatePreview(root,base)}
+function wireForm(root,base){
+  root.addEventListener("input",()=>updatePreview(root,base));
+  root.addEventListener("change",e=>{
+    if(e.target.dataset.k!=="debit"||base.type==="income")return;
+    const it=root.querySelector('[data-k="items"]');if(!it)return;
+    if(it.value===""||it.value===it.dataset.auto){const v=ReceiptOCR.summaryFor(e.target.value,base._ctx||"");it.value=v;it.dataset.auto=v;updatePreview(root,base)}
+  });
+  updatePreview(root,base);
+}
 
 const toRow=d=>({id:d.id,type:d.type,date:d.date,vendor:d.vendor||"",invoice_no:d.invoiceNo||"",items:d.items||"",amt10:+d.amt10||0,amt8:+d.amt8||0,amt0:+d.amt0||0,
   debit:d.debit,credit:d.credit,biz_ratio:d.bizRatio,memo:d.memo||"",receipt_path:d.assetId||null,ai_confidence:d.aiConfidence||"",updated_at:new Date().toISOString()});
@@ -719,6 +727,12 @@ async function processOne(q){
       q.draft.aiConfidence="low";
     }else if(totalOf(q.draft)===0&&r.total) q.draft.amt10=Math.round(+r.total);
     q.draft.detectedLang=r.language||"";
+    // 摘要: generic Japanese label (打合せ飲食代…); 備考: the items on the receipt
+    const list=Array.isArray(r.item_list)?r.item_list.filter(Boolean).map(String):[];
+    q.draft._ctx=[r.vendor,r.items,list.join(" "),q.pdfText||"",r.raw_text||""].join("\n");
+    const auto=(r.items&&!r.fromPdfText&&aiEnabled)?r.items:(ReceiptOCR.summaryFor(q.draft.debit,q.draft._ctx)||r.items||"");
+    q.draft.items=auto;q.draft.itemsAuto=auto;
+    if(list.length){const it=list.slice(0,12).join("、")+(list.length>12?" ほか"+(list.length-12)+"点":"");q.draft.memo=q.draft.memo?q.draft.memo+"／"+it:it}
     // meals: remind that a solo meal is personal; takeout food/groceries are usually personal too
     const hint=r.hint||(/^(会議費|接待交際費)$/.test(q.draft.debit)?"meal":"");
     if(hint&&cur==="JPY") q.draft.aiNotes=t(hint==="meal"?"mealNote":"food8Note")+(q.draft.aiNotes?" "+q.draft.aiNotes:"");
