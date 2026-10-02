@@ -51,17 +51,21 @@
     return "ja";
   }
   function detectCurrency(t, lang) {
+    // A Japanese receipt that shows ¥/円 several times is in yen, whatever stray symbols OCR produced ("£9", "€2")
+    const yenMarks = (t.match(/[¥\\]\s*\d|\d\s*円/g) || []).length;
+    if (lang === "ja" && yenMarks >= 2) return "JPY";
     if (/(NT\$|新台幣|新臺幣|TWD)/i.test(t)) return "TWD";
     if (/(HK\$|HKD|港幣|港币)/i.test(t)) return "HKD";
     if (/(人民币|人民幣|RMB|CNY)/i.test(t)) return "CNY";
-    if (/(US\$|USD)/i.test(t)) return "USD";
-    if (/(€|EUR\b)/.test(t)) return "EUR";
-    if (/(£|GBP\b)/.test(t)) return "GBP";
-    if (/(₩|KRW\b|원)/.test(t)) return "KRW";
-    if (/(SGD|S\$)/.test(t)) return "SGD";
+    // a currency sign only counts next to a number (OCR garbage like "S€ffich" is not a euro receipt)
+    if (/(US\$\s*\d|\bUSD\b)/i.test(t)) return "USD";
+    if (/(€\s*\d|\d\s*€|\bEUR\b)/.test(t)) return "EUR";
+    if (/(£\s*\d|\bGBP\b)/.test(t)) return "GBP";
+    if (/(₩\s*\d|\bKRW\b|\d\s*원)/.test(t)) return "KRW";
+    if (/(\bSGD\b|S\$\s*\d)/.test(t)) return "SGD";
     if (/(円|JPY)/i.test(t)) return "JPY";
     if (lang === "ja") return "JPY";
-    if (/\$/.test(t)) return "USD";
+    if (/\$\s*\d/.test(t) && !/[¥円]/.test(t)) return "USD";
     if (lang === "zh" && /元/.test(t)) return /[们这买币单为价]/.test(t) ? "CNY" : "TWD";
     if (/[¥\\]/.test(t)) return lang === "zh" ? "CNY" : "JPY";
     return lang === "ja" ? "JPY" : "";
@@ -94,6 +98,10 @@
       while ((m = re.exec(x))) add(2018 + +m[1], +m[2], +m[3], 0);
       re = new RegExp(`(?<!\\d)(20\\d{2})\\s*${SEP}\\s*(\\d{1,2})\\s*${SEP}\\s*(\\d{1,2})(?!\\d)`, "g"); // 2026年9月20日 / 2026-9-20 / 2026/9/20 / 2026.09.20
       while ((m = re.exec(x))) add(+m[1], +m[2], +m[3], 0);
+      re = /(?<![\d])['’]?(\d{2})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g;                // '26年07月30日
+      while ((m = re.exec(x))) add(2000 + +m[1], +m[2], +m[3], 1);
+      re = /(?<!\d)(20\d{2})\d([^\d\s\n])\s*(\d{1,2})\s*[^\d\n]{1,2}\s*(\d{1,2})(?!\d)/g;      // "20264F7A23H": 年 misread with a stray digit
+      while ((m = re.exec(x))) add(+m[1], +m[3], +m[4], 4);
       re = /(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)/g;                                          // 20260920
       while ((m = re.exec(x))) add(+m[1], +m[2], +m[3], 2);
       re = /(?:民國|民国)\s*(1\d{2})[^\d\n]{1,3}(\d{1,2})[^\d\n]{1,3}(\d{1,2})/g;             // 民國115年9月20日
@@ -155,7 +163,9 @@
       // dates, times, addresses, phone and register numbers are not money
       if (!isTotal && (DATE_LINE.test(l) || ADDRESS.test(l) || NOISE_LINE.test(l))) continue;
       const isExcl = /(お預|預り|お釣|釣銭|おつり|ポイント|点数|找零)/.test(l);
-      for (const v of amountsIn(moneyText(l))) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
+      // item lines ("¥400 1点 ¥400") repeat item prices; they must not out-vote the total
+      if (!isTotal && /\d\s*(点|個|コ|杯|人前)/.test(l)) continue;
+      for (const v of new Set(amountsIn(moneyText(l)))) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
     }
     if (!info.size) return 0;
     const vals = [...info.keys()];
@@ -167,6 +177,14 @@
       let score = o.n + 3 * o.total - 2 * (o.excl === o.n ? 1 : 0);
       // v = subtotal + exclusive tax (10% or 8%)
       for (const a of vals) { const b = v - a; if (b > 0 && set.has(b) && (near(b, Math.round(a * 0.1)) || near(b, Math.round(a * 0.08)) || near(b, Math.floor(a * 0.1)) || near(b, Math.floor(a * 0.08)))) { score += 4; break; } }
+      // v = sum of two or three other amounts (運賃 ¥4,000 + 迎車 ¥500 = ¥4,500)
+      const others = vals.filter((a) => a < v);
+      let summed = false;
+      for (let i = 0; i < others.length && !summed; i++) for (let j = i + 1; j < others.length && !summed; j++) {
+        if (near(others[i] + others[j], v)) summed = true;
+        for (let k = j + 1; k < others.length && !summed; k++) if (near(others[i] + others[j] + others[k], v)) summed = true;
+      }
+      if (summed) score += 3;
       // inclusive tax printed: (内消費税 ¥210) where 210 ≈ v*10/110
       for (const t of vals) if (t < v && (near(t, Math.floor(v * 10 / 110)) || near(t, Math.floor(v * 8 / 108)))) { score += 2; break; }
       if (score > bestScore || (score === bestScore && v > best)) { best = v; bestScore = score; }
@@ -195,20 +213,35 @@
     return 0;
   }
 
-  const ADDRESS = /(〒|東京都|北海道|大阪府|京都府|.{1,3}県|.{1,4}[市区町村].{0,8}\d|TEL|電話|☎)/i;
+  const ADDRESS = /(〒|東京都|北海道|大阪府|京都府|.{1,3}県|.{1,4}[市区町村].{0,8}\d|TEL|電話|☎|\b\d{3}-\d{4}\b|-KU\b|-SHI\b|-CHO\b|CHOME|[A-Z]+-KU,)/i;
   function vendorOk(l) {
     const s = l.replace(/[|_~=*#<>「」【】()（）\[\]]/g, "").replace(/(?<=[^\x00-\x7F])\s+(?=[^\x00-\x7F])/g, "").replace(/\s+/g, " ").trim();
     if (s.length < 2 || s.length > 30) return "";
     if (/(領収|レシート|receipt|電話|TEL|〒|\d{2,4}-\d{2,4}-\d{3,4}|登録番号|^T\d|^\d)/i.test(s)) return "";
     const letters = (s.match(/[A-Za-z\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
-    return letters / s.replace(/\s/g, "").length >= 0.7 ? s : "";
+    if (letters / s.replace(/\s/g, "").length < 0.7) return "";
+    const cjk = (s.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+    if (cjk < 2 && !/[A-Za-z]{3,}/.test(s.replace(/[^A-Za-z]/g, "").length >= 4 ? s : "")) return ""; // "SZ ag", "Sie 2"
+    if (/^[ーィッャュョァゥェォ、。・]/.test(s)) return "";
+    return s;
   }
+  const COMPANY = /(株式会社|有限会社|合同会社|[（(]\s*株\s*[)）]|[（(]\s*有\s*[)）]|Co\.,?\s*Ltd|Inc\.?\b|Corporation)/i;
   function findVendor(lines) {
     const head = lines.slice(0, 12);
     const ai = head.findIndex((l) => ADDRESS.test(l));
-    for (let i = ai - 1; ai > 0 && i >= Math.max(0, ai - 2); i--) { const v = vendorOk(head[i]); if (v) return v; }
+    for (let i = ai - 1; ai > 0 && i >= Math.max(0, ai - 3); i--) {
+      const v = vendorOk(head[i]);
+      if (!v) continue;
+      // two-line names: "DEAN & DELUCA" / "カフェ渋谷ストリーム店"
+      const up = i > 0 ? vendorOk(head[i - 1]) : "";
+      if (up && /[店舗館]$|店\s*$|BRANCH/i.test(v) && !/(領\s*収|レシート|RECEIPT)/i.test(head[i - 1])) return (up + " " + v).slice(0, 40);
+      return v;
+    }
     const ri = head.findIndex((l) => /(領\s*収\s*[書証]|レシート|RECEIPT)/i.test(l));
     for (let i = ri + 1; ri >= 0 && i <= Math.min(head.length - 1, ri + 2); i++) { const v = vendorOk(head[i]); if (v) return v; }
+    // logo unreadable: use the company line (often printed at the bottom)
+    const co = lines.find((l) => COMPANY.test(l) && vendorOk(l) && plausibleName(cleanName(l.replace(COMPANY, " "))));
+    if (co) return vendorOk(co);
     for (const l of lines.slice(0, 8)) { const v = vendorOk(l); if (v) return v; }
     return "";
   }
@@ -309,6 +342,9 @@
     const latin = (compact.match(/[A-Za-z]/g) || []).length;
     if ((cjk + latin) / compact.length < (cjk >= 2 ? 0.5 : 0.7)) return false;
     if (cjk < 2 && cjk + latin < 3) return false; // "j 点", "AE"…
+    if (/[%％]|税|計|預|釣|点数|合算|対象/.test(n)) return false;          // summary lines, not items
+    if (/^[ーィッャュョァゥェォ、。・ヽ]/.test(n)) return false;            // OCR fragments
+    if (!cjk && !n.split(/\s+/).some((w) => w.length >= 4 && /[aeiouy]/i.test(w))) return false; // "LAR", "Hi HI OFA"
     if (!cjk && !/[A-Za-z]{3,}/.test(n)) return false; // Latin needs a real word
     return true;
   }
