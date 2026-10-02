@@ -733,6 +733,8 @@ async function processOne(q){
     const auto=(r.items&&!r.fromPdfText&&aiEnabled)?r.items:(ReceiptOCR.summaryFor(q.draft.debit,q.draft._ctx)||r.items||"");
     q.draft.items=auto;q.draft.itemsAuto=auto;
     if(list.length){const it=list.slice(0,12).join("、")+(list.length>12?" ほか"+(list.length-12)+"点":"");q.draft.memo=q.draft.memo?q.draft.memo+"／"+it:it}
+    // vendor is the issuing company (株式会社…); keep the shop name in the memo
+    if(r.store&&r.store!==q.draft.vendor){q.draft.memo="店舗："+r.store+(q.draft.memo?"／"+q.draft.memo:"")}
     // meals: remind that a solo meal is personal; takeout food/groceries are usually personal too
     const hint=r.hint||(/^(会議費|接待交際費)$/.test(q.draft.debit)?"meal":"");
     if(hint&&cur==="JPY") q.draft.aiNotes=t(hint==="meal"?"mealNote":"food8Note")+(q.draft.aiNotes?" "+q.draft.aiNotes:"");

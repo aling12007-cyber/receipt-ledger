@@ -226,6 +226,32 @@
     return s;
   }
   const COMPANY = /(株式会社|有限会社|合同会社|[（(]\s*株\s*[)）]|[（(]\s*有\s*[)）]|Co\.,?\s*Ltd|Inc\.?\b|Corporation)/i;
+  // The issuing business (事業者名 / 株式会社… / (株)), which is what the books should record.
+  const COMPANY_NAME = /((?:株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人)\s*[^\s　,、。:：|()（）\d]{1,24}|[^\s　,、。:：|()（）\d]{1,24}\s*(?:株式会社|有限会社|合同会社)|[^\s　,、。:：|()（）\d]{1,24}\s*[（(]\s*[株有]\s*[)）]|[A-Za-z][A-Za-z&.' -]{1,40}(?:Co\.,?\s*Ltd\.?|Inc\.?|Corporation|K\.K\.))/i;
+  function findCompany(lines) {
+    const tidy = (x) => x.replace(/\s+/g, " ").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, "").trim();
+    // 1) labelled: 事業者名：株式会社ダイナック
+    for (const l of lines) {
+      const m = l.match(/(?:事業者名|事業者|発行者|発行元|会社名|運営会社|販売元|販売者|社名)\s*[:：]?\s*(.+)$/);
+      if (m) {
+        const v = tidy(m[1].replace(/(TEL|電話|〒|登録番号).*$/i, ""));
+        if (v.length >= 2 && plausibleName(cleanName(v))) return v.slice(0, 40);
+      }
+    }
+    // 2) a company name anywhere; closest to the 登録番号 line wins
+    const reg = lines.findIndex((l) => /登録番号|T\d{13}/.test(l.replace(/\s/g, "")));
+    const found = [];
+    lines.forEach((l, i) => {
+      const m = l.match(COMPANY_NAME);
+      if (!m) return;
+      const v = tidy(m[1]);
+      const core = cleanName(v.replace(/株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|[（(]\s*[株有]\s*[)）]|Co\.,?\s*Ltd\.?|Inc\.?|Corporation|K\.K\./gi, " "));
+      if (plausibleName(core) || (core.replace(/\s/g, "").length >= 2 && /[\u3040-\u30ff\u4e00-\u9fff]{2}/.test(core))) found.push({ v, d: reg >= 0 ? Math.abs(i - reg) : i });
+    });
+    found.sort((a, b) => a.d - b.d);
+    return found.length ? found[0].v.slice(0, 40) : "";
+  }
+
   function findVendor(lines) {
     const head = lines.slice(0, 12);
     const ai = head.findIndex((l) => ADDRESS.test(l));
@@ -256,7 +282,7 @@
     [/(振込手数料|手数料)/, "支払手数料"],
     [/(カフェ|CAFE|CAFÉ|COFFEE|コーヒー|珈琲|喫茶|咖啡|星巴克|スターバックス|STARBUCKS|ドトール|タリーズ|コメダ|ルノアール)/i, "会議費"],
     [/(居酒屋|焼肉|寿司|鮨|料亭|ダイニング|レストラン|酒場|\bBAR\b)/i, "接待交際費"],
-    [/(食堂|ラーメン|そば|うどん|定食|カレー|KITCHEN|DINER|GRILL|RESTAURANT|BISTRO|TRATTORIA|BURGER)/i, "会議費"],
+    [/(食堂|ラーメン|そば|うどん|定食|カレー|和食|洋食|中華|鉄板|割烹|ビストロ|トラットリア|バーガー|ハンバーグ|とんかつ|天ぷら|KITCHEN|DINER|GRILL|RESTAURANT|BISTRO|TRATTORIA|BURGER|TAPROOM|DINING)/i, "会議費"],
     [/(電気|ガス|水道)/, "水道光熱費"],
     [/(セミナー|研修|講座|受講)/, "研修費"],
     [/(ヨドバシ|ビックカメラ|ヤマダ|ダイソー|セリア|ロフト|LOFT|ハンズ|無印|文具|事務用品|アスクル|ASKUL|AMAZON|アマゾン|ホームセンター|コーナン|カインズ)/i, "消耗品費"],
@@ -400,13 +426,13 @@
     const currency = detectCurrency(text, lang) || "JPY";
     if (currency !== "JPY") {
       // Overseas purchase: amounts are not yen and are outside Japanese consumption tax.
-      const date = findDate(text, year), vendor = findVendor(lines);
-      const acc = guessAccount(vendor, text);
+      const date = findDate(text, year), store = findVendor(lines), vendor = findCompany(lines) || store;
+      const acc = guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text);
       return {
-        date: date || null, vendor, invoice_no: null, items: summaryFor(acc.account, text), item_list: extractItems(lines, vendor, 0),
+        date: date || null, vendor, store, invoice_no: null, items: summaryFor(acc.account, text), item_list: extractItems(lines, store, 0),
         amount_10: 0, amount_8: 0, amount_other: 0, total: 0,
         foreign_total: findTotal(lines, true), currency, language: lang,
-        payment: guessPayment(text), ...(({ account, hint }) => ({ account, hint }))(guessAccount(vendor, text)),
+        payment: guessPayment(text), ...(({ account, hint }) => ({ account, hint }))(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text)),
         confidence: "low", notes: "",
       };
     }
@@ -422,16 +448,16 @@
       else { a10 = total; a8 = 0; }
     }
     const date = findDate(text, year);
-    const vendor = findVendor(lines);
+    const store = findVendor(lines), vendor = findCompany(lines) || store;
     const found = [total > 0, !!date, !!findInvoiceNo(text)].filter(Boolean).length;
     return {
       date: date || null,
-      vendor,
+      vendor, store,
       invoice_no: findInvoiceNo(text) || null,
-      items: summaryFor(guessAccount(vendor, text).account, text), item_list: extractItems(lines, vendor, total),
+      items: summaryFor(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text).account, text), item_list: extractItems(lines, store, total),
       amount_10: a10, amount_8: a8, amount_other: other, total,
       payment: guessPayment(text),
-      ...(({ account, hint }) => ({ account, hint }))(guessAccount(vendor, text)),
+      ...(({ account, hint }) => ({ account, hint }))(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text)),
       currency: "JPY", language: lang,
       confidence: found >= 2 ? "medium" : "low",
       notes: "",
