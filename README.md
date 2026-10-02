@@ -81,17 +81,32 @@
 
 ```
 index.html            網站本體（介面、記帳邏輯、三語翻譯）
+books.js              目前的記帳核心（一筆收據＝一列，仕訳即時推算），介面與測試共用
 filing.js             申報準備：損益計算書、減価償却、貸借対照表的計算
+engine/migrate.js     會計資料升級：舊資料 → 複式簿記仕訳（含稅區分），並核對餘額一致
 imports.js            PDF（pdf.js）、HEIC 轉檔、Google Drive 匯入
 pdfjs/                pdf.js 的日文字型對照檔（cmaps、standard_fonts，Apache-2.0）
 ocr.js                免費模式：裝置上的 OCR（自動判斷日文／英文／中文）與收據解析規則
 api/scan.js           伺服器：驗證登入後，把收據照片送給 Claude 讀取
 api/config.js         伺服器：提供瀏覽器公開的 Supabase 設定
 supabase/schema.sql   資料表、修改紀錄、權限、照片空間
+supabase/002_accounting_core.sql  會計核心：科目表、證憑、取引、仕訳／仕訳行、年度、固定資產、稽核紀錄
+tests/                Golden Test Cases 與自動測試（npm test）
+supabase/tests/       資料庫規則測試（本機 Postgres）
 manifest.webmanifest  加到主畫面用的 App 設定
 icon-*.png, icon.svg  App 圖示
 vercel.json           伺服器設定（AI 辨識最長 60 秒）
 ```
+
+## 會計資料升級（複式簿記核心）
+
+新的會計核心把每張收據存成正式仕訳（借方、貸方、稅區分、稅額），借貸不平衡的仕訳不能確定，確定後不能修改或刪除（只能用沖銷仕訳更正），鎖定的年度不能寫入，所有變更都留下稽核紀錄。
+
+1. Supabase → **SQL Editor** → **New query**，貼上 `supabase/002_accounting_core.sql` 全部內容 → **Run**（重複執行也安全，不會動到現有資料）。
+2. 網站 → **設定** → 確認「消費稅身分」正確 → **會計資料升級** →「檢查並升級」。
+3. 畫面顯示「核對通過」代表新帳簿每個科目的餘額都和目前資料一致。
+
+目前的畫面仍使用原本的資料；之後的版本會逐步改用新帳簿。在那之前新增的收據，再按一次「檢查並升級」即可補上（已升級的不會重複）。
 
 ## （可選）Google Drive 匯入
 
