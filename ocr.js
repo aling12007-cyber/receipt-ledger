@@ -119,6 +119,8 @@
       while ((m = re.exec(x))) add(2000 + +m[1], +m[2], +m[3], 3);
       re = /(?<!\d)\d(\d)(\d{2})\s*[^\d\n]{1,2}\s*(\d{1,2})\s*[^\d\n]{1,2}\s*(\d{1,2})(?!\d)/g; // "9026/09/20": first digit misread
       while ((m = re.exec(x))) if (m[1] === "0") add(2000 + +m[2], +m[3], +m[4], 4);
+      re = /(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/g;                                  // inside a transaction no. "…0006 20260902 1245…"
+      while ((m = re.exec(x))) add(+m[1], +m[2], +m[3], 6);
       re = /(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*日/g;                                          // 9月20日 (no year)
       while ((m = re.exec(x))) add(fallbackYear, +m[1], +m[2], 5);
     }
@@ -155,6 +157,15 @@
   // card line) and equals 小計 + 税 (外税) — robust when OCR garbles the 合計 label itself.
   const NOISE_LINE = /(TEL|電話|FAX|レジ|No[.:]|登録|番号|担当|伝票|責|取引|会員|ポイント|〒)/i;
   const moneyText = (l) => l.replace(/\d+(?:\.\d+)?\s*[%％]/g, " ").replace(/\d{1,2}:\d{2}(?::\d{2})?/g, " ");
+  // Amounts that look like money: ¥/\ prefix (or OCR's v/w/#), 円 suffix, or thousands separators.
+  // Bare numbers (receipt numbers, card numbers, counts) are not money.
+  function moneyOnly(l) {
+    const x = moneyText(l), out = [];
+    let m; const re = /([¥\\￥#vVwW])\s*(\d{1,3}(?:[,.]\s?\d{3})+|\d{2,7})(?![\d])|(?<![\d])(\d{1,3}(?:[,.]\s?\d{3})+|\d{2,7})\s*円|(?<![\d.,])(\d{1,3}(?:,\s?\d{3})+)(?![\d])/g;
+    while ((m = re.exec(x))) { const v = toInt(m[2] || m[3] || m[4]); if (v >= 10 && v < 10000000) out.push(v); }
+    return out;
+  }
+  let lastTotalScore = 0;
   function findYenTotal(lines) {
     const info = new Map();
     const add = (v, key) => { if (v < 10 || v >= 10000000) return; const o = info.get(v) || { n: 0, total: 0, excl: 0 }; o.n++; o[key]++; info.set(v, o); };
@@ -165,7 +176,8 @@
       const isExcl = /(お預|預り|お釣|釣銭|おつり|ポイント|点数|找零)/.test(l);
       // item lines ("¥400 1点 ¥400") repeat item prices; they must not out-vote the total
       if (!isTotal && /\d\s*(点|個|コ|杯|人前)/.test(l)) continue;
-      for (const v of new Set(amountsIn(moneyText(l)))) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
+      const vals = isTotal ? amountsIn(moneyText(l)) : moneyOnly(l);
+      for (const v of new Set(vals)) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
     }
     if (!info.size) return 0;
     const vals = [...info.keys()];
@@ -189,6 +201,7 @@
       for (const t of vals) if (t < v && (near(t, Math.floor(v * 10 / 110)) || near(t, Math.floor(v * 8 / 108)))) { score += 2; break; }
       if (score > bestScore || (score === bestScore && v > best)) { best = v; bestScore = score; }
     }
+    lastTotalScore = bestScore;
     return best;
   }
 
@@ -232,7 +245,7 @@
     const tidy = (x) => x.replace(/\s+/g, " ").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, "").trim();
     // 1) labelled: 事業者名：株式会社ダイナック
     for (const l of lines) {
-      const m = l.match(/(?:事業者名|事業者|発行者|発行元|会社名|運営会社|販売元|販売者|社名)\s*[:：]?\s*(.+)$/);
+      const m = l.match(/(?:事業者名|事業者|発行者|発行元|会社名|運営会社|販売元|販売者|社名)(?!印)\s*(?:[:：]|\s)\s*(.+)$/);
       if (m) {
         const v = tidy(m[1].replace(/(TEL|電話|〒|登録番号).*$/i, ""));
         if (v.length >= 2 && plausibleName(cleanName(v))) return v.slice(0, 40);
@@ -246,7 +259,14 @@
       if (!m) return;
       const v = tidy(m[1]);
       const core = cleanName(v.replace(/株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人|[（(]\s*[株有]\s*[)）]|Co\.,?\s*Ltd\.?|Inc\.?|Corporation|K\.K\./gi, " "));
-      if (plausibleName(core) || (core.replace(/\s/g, "").length >= 2 && /[\u3040-\u30ff\u4e00-\u9fff]{2}/.test(core))) found.push({ v, d: reg >= 0 ? Math.abs(i - reg) : i });
+      const latinForm = /(Co\.,?\s*Ltd|Inc\.?|Corporation|K\.K\.)/i.test(v);
+      const cjk = (core.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
+      if ((cjk >= 2 && plausibleName(core)) || (latinForm && /[A-Za-z]{3,}/.test(core))) found.push({ v, d: reg >= 0 ? Math.abs(i - reg) : i });
+    });
+    // OCR often drops the brackets of "(株)": "東京リスマチック株"
+    if (!found.length) lines.forEach((l, i) => {
+      const m = l.replace(/\s/g, "").match(/([\u30a0-\u30ff\u4e00-\u9fff]{3,20})株$/);
+      if (m && plausibleName(m[1])) found.push({ v: m[1] + "（株）", d: reg >= 0 ? Math.abs(i - reg) : i });
     });
     found.sort((a, b) => a.d - b.d);
     return found.length ? found[0].v.slice(0, 40) : "";
@@ -426,17 +446,19 @@
     const currency = detectCurrency(text, lang) || "JPY";
     if (currency !== "JPY") {
       // Overseas purchase: amounts are not yen and are outside Japanese consumption tax.
-      const date = findDate(text, year), store = findVendor(lines), vendor = findCompany(lines) || store;
+      const date = findDate(text, year), store = findVendor(lines), company = findCompany(lines), vendor = company || store;
       const acc = guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text);
       return {
-        date: date || null, vendor, store, invoice_no: null, items: summaryFor(acc.account, text), item_list: extractItems(lines, store, 0),
+        date: date || null, vendor, store, company, invoice_no: null, items: summaryFor(acc.account, text), item_list: extractItems(lines, store, 0),
         amount_10: 0, amount_8: 0, amount_other: 0, total: 0,
         foreign_total: findTotal(lines, true), currency, language: lang,
         payment: guessPayment(text), ...(({ account, hint }) => ({ account, hint }))(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text)),
         confidence: "low", notes: "",
       };
     }
+    lastTotalScore = 0;
     const total = findTotal(lines);
+    const totalScore = lastTotalScore;
     let a8 = findRateBase(lines, 8), a10 = findRateBase(lines, 10);
     if (!a8) { const tax8 = findRateTax(lines, 8); if (tax8) a8 = Math.round(tax8 * 108 / 8); }
     if (!a10 && a8 && total > a8) a10 = total - a8;
@@ -448,11 +470,11 @@
       else { a10 = total; a8 = 0; }
     }
     const date = findDate(text, year);
-    const store = findVendor(lines), vendor = findCompany(lines) || store;
+    const store = findVendor(lines), company = findCompany(lines), vendor = company || store;
     const found = [total > 0, !!date, !!findInvoiceNo(text)].filter(Boolean).length;
     return {
       date: date || null,
-      vendor, store,
+      vendor, store, company, total_score: totalScore,
       invoice_no: findInvoiceNo(text) || null,
       items: summaryFor(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text).account, text), item_list: extractItems(lines, store, total),
       amount_10: a10, amount_8: a8, amount_other: other, total,
@@ -516,11 +538,11 @@
   }
   // Crop to the paper, enlarge so text is big enough for Tesseract, grey + 1–99% contrast stretch.
   // (Tested on real receipts: hard black/white thresholding hurt thin Latin shop names, so we keep grey.)
-  async function prepare(blob) {
+  async function prepare(blob, mode) {
     const url = URL.createObjectURL(blob);
     try {
       const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-      const s0 = Math.min(1, 3000 / Math.max(img.naturalWidth, img.naturalHeight));
+      const s0 = Math.min(1, 4200 / Math.max(img.naturalWidth, img.naturalHeight));
       const W = Math.round(img.naturalWidth * s0), H = Math.round(img.naturalHeight * s0);
       const c0 = document.createElement("canvas"); c0.width = W; c0.height = H;
       const x0c = c0.getContext("2d", { willReadFrequently: true }); x0c.drawImage(img, 0, 0, W, H);
@@ -528,7 +550,12 @@
       for (let i = 0, j = 0; i < p0.length; i += 4, j++) g[j] = 0.299 * p0[i] + 0.587 * p0[i + 1] + 0.114 * p0[i + 2];
       const box = paperBox(g, W, H) || { x0: 0, y0: 0, w: W, h: H };
       // target ~1600 px across the paper; cap total size for phones
-      let sc = 1600 / box.w; sc = Math.min(sc, Math.sqrt(16e6 / (box.w * box.h)));
+      // Keep the photo's own resolution (small print on big statements needs it), but at least
+      // 1600 px across the paper so small receipts are enlarged, and at most 2800 px / 16 MP for phones.
+      // "standard": 1600 px across the paper (best for ordinary receipts);
+      // "full": keep the photo's own resolution (for small print on large statements), 1600–2800 px.
+      let sc = (mode === "full" ? Math.max(1600, Math.min(box.w, 2800)) : 1600) / box.w;
+      sc = Math.min(sc, Math.sqrt(16e6 / (box.w * box.h)));
       const c = document.createElement("canvas"); c.width = Math.round(box.w * sc); c.height = Math.round(box.h * sc);
       const ctx = c.getContext("2d", { willReadFrequently: true });
       ctx.imageSmoothingQuality = "high";
@@ -548,23 +575,52 @@
   const cleanText = (t) => (t || "").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, ""); // drop OCR spaces between CJK chars
   async function readReceipt(blob, opts) {
     progressCb = opts && opts.onProgress;
-    // Prefer the original full-resolution photo; fall back to the shrunk copy (e.g. HEIC the browser can't decode).
-    let canvas;
-    try { canvas = await prepare((opts && opts.original) || blob); } catch (e) { canvas = await prepare(blob); }
-    // Pass 1: Japanese + English covers almost every receipt issued in Japan.
-    let text = cleanText((await (await getWorker("jpn+eng")).recognize(canvas)).data.text);
-    const lang = scriptOf(text);
-    // Pass 2: re-read with the right models when the receipt is Chinese or English.
-    if (PASS2[lang]) {
-      if (opts && opts.onLanguage) opts.onLanguage(lang);
-      try { text = cleanText((await (await getWorker(PASS2[lang])).recognize(canvas)).data.text); } catch (e) { /* keep pass-1 text */ }
+    const src = (opts && opts.original) || blob;
+    const prep = async (mode) => { try { return await prepare(src, mode); } catch (e) { return await prepare(blob, mode); } };
+    const read = async (canvas) => {
+      // Japanese + English covers almost every receipt issued in Japan; re-read with the right models
+      // when the receipt is Chinese or English.
+      let text = cleanText((await (await getWorker("jpn+eng")).recognize(canvas)).data.text);
+      const lang = scriptOf(text);
+      if (PASS2[lang]) {
+        if (opts && opts.onLanguage) opts.onLanguage(lang);
+        try { text = cleanText((await (await getWorker(PASS2[lang])).recognize(canvas)).data.text); } catch (e) { /* keep first text */ }
+      }
+      const r = parseReceiptText(text, { ...(opts || {}), lang });
+      r.raw_text = text;
+      return r;
+    };
+    let r = await read(await prep("standard"));
+    // Small print (large statements, company lines): read again at full resolution and fill the gaps.
+    if (needsSecondPass(r)) {
+      if (opts && opts.onSecondPass) opts.onSecondPass();
+      try {
+        const r2 = await read(await prep("full"));
+        r = { ...mergeResults(r, r2), raw_text: r.raw_text + "\n" + r2.raw_text };
+      } catch (e) { /* keep the first result */ }
     }
-    const r = parseReceiptText(text, { ...(opts || {}), lang });
-    r.raw_text = text;
     return r;
   }
 
-  const api = { parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems };
+  // A first read at the standard size can miss small print. When date, total or company is missing,
+  // a second read at full resolution fills the gaps (never overrides what the first read found).
+  const needsSecondPass = (r) => !r.date || (!r.total && !r.foreign_total) || !r.company || (r.total && (r.total_score || 0) < 4);
+  function mergeResults(a, b) {
+    const out = { ...a };
+    if (!a.date && b.date) out.date = b.date;
+    if (b.total && a.currency === b.currency && (!a.total || (b.total_score || 0) > (a.total_score || 0) + 1)) { out.total = b.total; out.amount_10 = b.amount_10; out.amount_8 = b.amount_8; out.amount_other = b.amount_other; }
+    if (!a.company && b.company) { out.company = b.company; out.vendor = b.company; }
+    if (!out.store && b.store) out.store = b.store;
+    if (!a.invoice_no && b.invoice_no) out.invoice_no = b.invoice_no;
+    if ((!a.item_list || !a.item_list.length) && b.item_list && b.item_list.length) out.item_list = b.item_list;
+    if (a.payment === "unknown" && b.payment !== "unknown") out.payment = b.payment;
+    if (!a.foreign_total && b.foreign_total) out.foreign_total = b.foreign_total;
+    const found = [out.date, out.total || out.foreign_total, out.company].filter(Boolean).length;
+    if (found >= 2 && out.confidence === "low") out.confidence = "medium";
+    return out;
+  }
+
+  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);
