@@ -71,6 +71,13 @@ drop policy if exists "read own history" on public.entry_history;
 create policy "read own history" on public.entry_history for select
   using (user_id = auth.uid());
 
+-- Explicit grants, so this works even if "Automatically expose new tables" was turned off.
+-- Row-level security above still limits every signed-in user to their own rows.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.entries, public.settings to authenticated;
+grant select on public.entry_history to authenticated;
+revoke insert, update, delete on public.entry_history from authenticated, anon;
+
 -- 5) Private storage bucket for receipt images: <user id>/<YYYY-MM>/<file>.jpg
 insert into storage.buckets (id, name, public)
 values ('receipts', 'receipts', false)
