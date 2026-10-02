@@ -16,7 +16,7 @@ The repository is public: never add real receipts, OCR output of real receipts, 
 
 `npm run check` runs, in order (each must pass before the next):
 
-1. `build` — `scripts/build.mjs`: every file index.html references exists, every inline script and module parses,
+1. `verify:build` — `scripts/build.mjs`: every file index.html references exists, every inline script and module parses,
    the manifest is valid, and every translation key used exists in en / ja / zh.
 2. `lint` — ESLint (`eslint.config.js`) on the modules, the API, the tests and the inline app script.
 3. `typecheck` — TypeScript in checkJs mode (`tsconfig.json`) on the browser modules.

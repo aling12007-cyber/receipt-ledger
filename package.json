@@ -2,12 +2,15 @@
   "name": "receipt-ledger",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
+  "//": "No \"build\" script on purpose: Vercel publishes these files as they are. A \"build\" script makes Vercel expect a build output folder and the deployment fails.",
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "lint": "npm run build --silent && eslint . .check/index.inline.js",
+    "lint": "npm run verify:build --silent && eslint . .check/index.inline.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test \"tests/*.test.js\"",
-    "check": "npm run build --silent && eslint . .check/index.inline.js && tsc -p tsconfig.json && node --test \"tests/*.test.js\""
+    "check": "npm run verify:build --silent && eslint . .check/index.inline.js && tsc -p tsconfig.json && node --test \"tests/*.test.js\"",
+    "verify:build": "node scripts/build.mjs"
   }
 }
