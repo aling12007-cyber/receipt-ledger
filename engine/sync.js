@@ -1,6 +1,7 @@
 // Receipt Ledger — keeps the new journal in step with the old "entries" rows while the screens still edit them.
-// New row → posted entry; changed row → reversal of the old entry + corrected entry; deleted row → reversal.
-// Nothing in the journal is ever changed or deleted. Exposes window.Sync (and module.exports for tests).
+// New row → posted entry; changed row → reversal of the old entry + corrected entry;
+// deleted row → its entries (with their reversals and corrections) are deleted permanently (purge_journal).
+// Exposes window.Sync (and module.exports for tests).
 (function (root) {
   const isNode = typeof module !== "undefined" && module.exports;
   /* eslint-disable no-undef */
@@ -48,8 +49,17 @@
       out.push(history ? { ...p, legacy_ids: p.legacy_ids.map((k) => k + "#" + sig(p) + "." + history) } : p);
       if (history) counts.changed++; else counts.added++;
     }
-    for (const a of active) if (!used.has(a.id)) { out.push(reversal(a, "元データ削除")); counts.removed++; }
-    return { payload: { documents: target.documents, entries: out, fixed_assets: target.fixed_assets, fiscal_years: target.fiscal_years }, target, counts };
+    // Deleted rows: every migrated entry whose rows are all gone goes for good, with the reversals that point at it
+    const wanted = new Set(target.entries.flatMap((p) => p.legacy_ids.map(base)));
+    const purge = new Set();
+    for (const e of db.entries) {
+      if (e.source !== "migrated" || e.kind === "reversal") continue;
+      const keys = (keysOf.get(e.id) || []).map(base);
+      if (keys.length && !keys.some((k) => wanted.has(k))) purge.add(e.id);
+    }
+    for (const e of db.entries) if (e.kind === "reversal" && purge.has(e.reverses)) purge.add(e.id);
+    counts.removed = active.filter((a) => purge.has(a.id)).length;
+    return { payload: { documents: target.documents, entries: out, fixed_assets: target.fixed_assets, fiscal_years: target.fiscal_years }, purge: [...purge], target, counts };
   }
 
   // net balance per "year account" key
@@ -89,17 +99,23 @@
    */
   async function run(sb, rows, settings, deps) {
     const v = await sb.rpc("accounting_core_version");
-    if (v.error || !(v.data >= 2)) throw Object.assign(new Error("accounting core SQL is out of date"), { code: "SQL_OUTDATED" });
+    if (v.error || !(v.data >= 3)) throw Object.assign(new Error("accounting core SQL is out of date"), { code: "SQL_OUTDATED" });
     const before = await load(sb);
     const p = plan(rows, settings, before, deps);
+    let paths = [];
+    if (p.purge.length) {
+      const { data, error } = await sb.rpc("purge_journal", { ids: p.purge });
+      if (error) throw Object.assign(new Error(error.message), { code: "DB" });
+      paths = (data && data.paths) || [];
+    }
     if (p.payload.entries.length || p.payload.fiscal_years.length) {
       const { error } = await sb.rpc("import_journal", { payload: p.payload });
       if (error) throw Object.assign(new Error(error.message), { code: "DB" });
     }
-    const after = p.payload.entries.length ? await load(sb) : before;
+    const after = p.payload.entries.length || p.purge.length ? await load(sb) : before;
     const want = balances(p.target.entries);
     const d = diff(balances(after.entries.filter((e) => e.status === "posted")), want);
-    return { counts: p.counts, ok: d.length === 0, diffs: d, balances: Object.keys(want).length };
+    return { counts: p.counts, ok: d.length === 0, diffs: d, balances: Object.keys(want).length, removedPaths: paths };
   }
 
   const api = { plan, run, load, balances, diff, sig };

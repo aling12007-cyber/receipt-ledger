@@ -1,4 +1,4 @@
-// Sync (engine/sync.js): the journal follows edits and deletions of old rows by reversal, never by changing entries.
+// Sync (engine/sync.js): edits of old rows are corrected by reversal; deleted rows are removed from the journal for good.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { load } from "./helpers/load.js";
@@ -17,7 +17,8 @@ function fakeDb() {
       e.legacy_ids.forEach((k) => db.map.push({ legacy_id: k, journal_entry_id: e.id }));
     }
   };
-  return { db, step(rows) { const p = Sync.plan(rows, {}, db, deps); apply(p.payload); return p; } };
+  const purge = (ids) => { db.entries = db.entries.filter((e) => !ids.includes(e.id)); db.map = db.map.filter((m) => !ids.includes(m.journal_entry_id)); };
+  return { db, step(rows) { const p = Sync.plan(rows, {}, db, deps); purge(p.purge); apply(p.payload); return p; } };
 }
 const row = (id, amt10, extra = {}) => ({ id, type: "expense", date: "2026-03-01", debit: "消耗品費", credit: "現金", amt10, amt8: 0, amt0: 0, bizRatio: 100, ...extra });
 const check = (db, rows) => assert.deepEqual(Sync.diff(Sync.balances(db.entries), Sync.balances(Sync.plan(rows, {}, { entries: [], map: [] }, deps).target.entries)), []);
@@ -46,11 +47,23 @@ test("edit back and forth never collides with an earlier correction", () => {
   assert.equal(f.db.entries.filter((e) => e.kind === "reversal").length, 4);
 });
 
-test("a deleted row is reversed", () => {
+test("a deleted row disappears from the journal: no reversal, nothing left", () => {
   const f = fakeDb();
   f.step([row("a", 1100), row("b", 2200)]);
   assert.deepEqual(f.step([row("b", 2200)]).counts, { added: 0, changed: 0, removed: 1, unchanged: 1 });
+  assert.equal(f.db.entries.length, 1);
+  assert.ok(f.db.entries.every((e) => e.kind !== "reversal"));
   check(f.db, [row("b", 2200)]);
+});
+
+test("a row edited and then deleted: the old version, its reversal and the correction all go", () => {
+  const f = fakeDb();
+  f.step([row("a", 1100), row("b", 2200)]);
+  f.step([row("a", 3300), row("b", 2200)]);
+  assert.equal(f.db.entries.length, 4);                       // a, reversal of a, corrected a, b
+  f.step([row("b", 2200)]);
+  assert.deepEqual(f.db.entries.map((e) => e.legacy_ids[0]), ["b"]);
+  assert.equal(f.db.map.length, 1);
 });
 
 test("changing one split line of a receipt re-posts the whole compound entry", () => {

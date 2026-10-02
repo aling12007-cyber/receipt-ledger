@@ -78,7 +78,14 @@
       return { reversal: r, entry: p };
     }
 
-    return { isAvailable, post, list, reverse, correct };
+    /** Delete an entry permanently (with its reversal pair); returns the storage paths of documents that went with it. @param {{ id: string }} entry */
+    async function remove(entry) {
+      const { data, error } = await sb.rpc("purge_journal", { ids: [entry.id] });
+      if (error) throw Object.assign(new Error(error.message), { code: "DB" });
+      return { removed: (data && data.entries) || 0, paths: (data && data.paths) || [] };
+    }
+
+    return { isAvailable, post, list, reverse, correct, remove };
   }
 
   const api = { create };

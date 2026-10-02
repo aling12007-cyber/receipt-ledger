@@ -12,11 +12,13 @@
 --
 -- Rules the database itself enforces (the app checks them too):
 --   * a journal entry is created as draft; it can be posted only when debits = credits (≥ 2 lines)
---   * posted and void entries can never be changed or deleted; corrections are reversal entries
+--   * posted and void entries can never be changed; corrections are reversal entries
+--   * deleting is permanent and only possible through public.purge_journal (the entry, its reversals,
+--     and the transaction / document only it used are removed, with no trace in the audit log)
 --   * lines can be added or changed only while their entry is a draft
 --   * nothing can be written into a locked year
---   * receipt files (path, hash) can never be changed; documents are never deleted
---   * every change is written to audit_log, which users can read but not change
+--   * receipt files (path, hash) can never be changed; documents go only with a purged entry
+--   * every other change is written to audit_log, which users can read but not change
 
 -- ---------- tax codes (税区分) ----------
 create or replace function public.valid_tax_code(c text) returns boolean language sql immutable as $$
@@ -230,7 +232,8 @@ create or replace function public.je_guard() returns trigger language plpgsql se
 declare d bigint; c bigint; n int;
 begin
   if tg_op = 'DELETE' then
-    raise exception 'journal entries are never deleted: void a draft, or reverse a posted entry';
+    if current_setting('app.purge', true) = 'on' then return old; end if;   -- permanent deletion through purge_journal
+    raise exception 'journal entries are deleted only through purge_journal';
   end if;
   if tg_op = 'INSERT' then
     if new.status <> 'draft' then raise exception 'a journal entry is created as draft, then posted'; end if;
@@ -264,6 +267,7 @@ for each row execute function public.je_guard();
 create or replace function public.jl_guard() returns trigger language plpgsql set search_path = public as $$
 declare st text; owner uuid;
 begin
+  if tg_op = 'DELETE' and current_setting('app.purge', true) = 'on' then return old; end if;
   select status, user_id into st, owner from public.journal_entries where id = coalesce(new.entry_id, old.entry_id);
   if st is distinct from 'draft' then raise exception 'lines can change only while the entry is a draft'; end if;
   if tg_op = 'DELETE' then return old; end if;
@@ -278,7 +282,10 @@ for each row execute function public.jl_guard();
 
 create or replace function public.doc_guard() returns trigger language plpgsql as $$
 begin
-  if tg_op = 'DELETE' then raise exception 'documents are never deleted'; end if;
+  if tg_op = 'DELETE' then
+    if current_setting('app.purge', true) = 'on' then return old; end if;
+    raise exception 'documents are deleted only together with their entry (purge_journal)';
+  end if;
   if new.storage_path is distinct from old.storage_path or new.sha256 is distinct from old.sha256 and old.sha256 is not null
      or new.user_id <> old.user_id or new.mime_type is distinct from old.mime_type then
     raise exception 'the original file of a document cannot change';
@@ -290,7 +297,10 @@ create trigger doc_guard before update or delete on public.documents
 for each row execute function public.doc_guard();
 
 create or replace function public.no_delete() returns trigger language plpgsql as $$
-begin raise exception '% rows are never deleted', tg_table_name; end $$;
+begin
+  if current_setting('app.purge', true) = 'on' then return old; end if;
+  raise exception '% rows are deleted only through purge_journal', tg_table_name;
+end $$;
 drop trigger if exists tx_no_delete on public.transactions;
 create trigger tx_no_delete before delete on public.transactions for each row execute function public.no_delete();
 
@@ -316,6 +326,7 @@ create trigger year_lock_stamp before insert or update on public.fiscal_years fo
 create or replace function public.audit_row() returns trigger language plpgsql security definer set search_path = public as $$
 declare r jsonb := to_jsonb(coalesce(new, old));
 begin
+  if current_setting('app.purge', true) = 'on' then return coalesce(new, old); end if;   -- a permanent deletion leaves no record
   insert into public.audit_log (user_id, table_name, row_id, action, old_row, new_row)
   values ((r->>'user_id')::uuid, tg_table_name, coalesce(r->>'id', r->>'year', r->>'legacy_id'), lower(tg_op),
           case when tg_op <> 'INSERT' then to_jsonb(old) end, case when tg_op <> 'DELETE' then to_jsonb(new) end);
@@ -351,7 +362,7 @@ grant select on public.audit_log to authenticated;
 revoke insert, update, delete on public.audit_log from authenticated, anon;
 
 -- ---------- version (the app checks it and asks to re-run this file when it is older than expected) ----------
-create or replace function public.accounting_core_version() returns integer language sql immutable as $$ select 2 $$;
+create or replace function public.accounting_core_version() returns integer language sql immutable as $$ select 3 $$;
 grant execute on function public.accounting_core_version() to authenticated;
 
 -- ---------- import (used by the data upgrade now, and later by CSV import and backup restore) ----------
@@ -432,3 +443,65 @@ begin
 end $$;
 revoke execute on function public.import_journal(jsonb) from public, anon;
 grant execute on function public.import_journal(jsonb) to authenticated;
+
+-- ---------- permanent deletion ----------
+-- Removes the given entries together with their reversals (and the entries they reverse), their lines, the
+-- legacy-map rows, and the transactions / documents nothing else uses. Nothing about them stays in audit_log.
+-- Returns { entries: n, paths: [storage paths of removed documents] } so the app can delete those files.
+create or replace function public.purge_journal(ids uuid[]) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  uid uuid := auth.uid();
+  all_ids uuid[]; line_ids uuid[]; tx_ids uuid[]; gone_tx uuid[]; doc_ids uuid[]; paths text[];
+begin
+  if uid is null then raise exception 'sign in first'; end if;
+  select array_agg(distinct id) into all_ids from journal_entries
+   where user_id = uid and (id = any(ids) or reverses = any(ids)
+     or id in (select reverses from journal_entries where user_id = uid and id = any(ids) and reverses is not null));
+  if all_ids is null then return jsonb_build_object('entries', 0, 'paths', '[]'::jsonb); end if;
+  if exists (select 1 from journal_entries where id = any(all_ids) and public.year_locked(uid, date)) then
+    raise exception 'a locked year cannot be changed';
+  end if;
+  perform set_config('app.purge', 'on', true);
+  select array_agg(id) into line_ids from journal_lines where entry_id = any(all_ids);
+  select array_agg(distinct transaction_id) into tx_ids from journal_entries where id = any(all_ids) and transaction_id is not null;
+  delete from legacy_map where user_id = uid and journal_entry_id = any(all_ids);
+  update fixed_assets set acquisition_entry_id = null where user_id = uid and acquisition_entry_id = any(all_ids);
+  update fiscal_years set opening_entry_id = null where user_id = uid and opening_entry_id = any(all_ids);
+  delete from journal_lines where entry_id = any(all_ids);
+  delete from journal_entries where id = any(all_ids);
+  -- transactions and documents that only these entries used
+  select array_agg(id) into gone_tx from transactions t
+   where t.user_id = uid and t.id = any(coalesce(tx_ids, '{}')) and not exists (select 1 from journal_entries j where j.transaction_id = t.id);
+  select array_agg(distinct document_id) into doc_ids from transactions where id = any(coalesce(gone_tx, '{}')) and document_id is not null;
+  delete from transactions where id = any(coalesce(gone_tx, '{}'));
+  select array_agg(d.storage_path) into paths from documents d
+   where d.user_id = uid and d.id = any(coalesce(doc_ids, '{}'))
+     and not exists (select 1 from transactions t where t.document_id = d.id)
+     and not exists (select 1 from fixed_assets f where f.document_id = d.id);
+  delete from documents d where d.user_id = uid and d.storage_path = any(coalesce(paths, '{}'));
+  delete from audit_log where user_id = uid and row_id = any(
+    array(select unnest(all_ids)::text) || array(select unnest(coalesce(line_ids, '{}'))::text)
+    || array(select unnest(coalesce(gone_tx, '{}'))::text) || array(select unnest(coalesce(doc_ids, '{}'))::text));
+  return jsonb_build_object('entries', coalesce(array_length(all_ids, 1), 0), 'paths', to_jsonb(coalesce(paths, '{}')));
+end $$;
+revoke execute on function public.purge_journal(uuid[]) from public, anon;
+grant execute on function public.purge_journal(uuid[]) to authenticated;
+
+-- the change history of deleted records goes too
+create or replace function public.purge_entry_history(ids text[]) returns integer
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); n int;
+begin
+  if uid is null then raise exception 'sign in first'; end if;
+  delete from entry_history where user_id = uid and entry_id = any(ids) and not exists (select 1 from entries e where e.id = entry_history.entry_id);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke execute on function public.purge_entry_history(text[]) from public, anon;
+grant execute on function public.purge_entry_history(text[]) to authenticated;
+
+-- receipt images of deleted records can be removed (own folder only)
+drop policy if exists "receipts delete own" on storage.objects;
+create policy "receipts delete own" on storage.objects for delete
+  using (bucket_id = 'receipts' and (storage.foldername(name))[1] = auth.uid()::text);

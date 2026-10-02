@@ -16,8 +16,14 @@ function fakeSupabase({ tables = true } = {}) {
         then(res) { return res(tables ? { count: db.entries.length, error: null } : { error: { message: "relation does not exist" } }); } };
       return q;
     },
-    rpc(name, { payload }) {
+    rpc(name, args) {
       db.calls++;
+      if (name === "purge_journal") {
+        const ids = new Set(db.entries.filter((e) => args.ids.includes(e.id) || args.ids.includes(e.reverses)).map((e) => e.id));
+        db.entries = db.entries.filter((e) => !ids.has(e.id));
+        return Promise.resolve({ data: { entries: ids.size, paths: [] }, error: null });
+      }
+      const { payload } = args;
       let posted = 0, skipped = 0;
       for (const e of payload.entries) {
         if (e.legacy_ids.some((k) => db.keys.has(k))) { skipped++; continue; }
@@ -63,4 +69,15 @@ test("correction = reversal + corrected entry; the original stays", async () => 
   assert.deepEqual(all.map((e) => e.kind), ["compound", "reversal", "compound"]); // 家事按分 adds a 事業主貸 line
   assert.deepEqual(Journal.balances(all), Journal.balances([fixed]));
   assert.equal(all[1].reverses, posted.id, "the reversal names the entry it cancels (the database requires it)");
+});
+
+test("delete removes an entry permanently, together with its reversal", async () => {
+  const sb = fakeSupabase(), svc = LedgerService.create(sb, { uuid });
+  const { entry } = Journal.fromQuickEntry({ type: "transfer", date: "2026-10-01", amount: 50000, from: "普通預金", to: "事業主貸" });
+  await svc.post(entry, { key: "t1" });
+  const [posted] = await svc.list(2026);
+  await svc.reverse(posted);
+  const out = await svc.remove(posted);
+  assert.equal(out.removed, 2);
+  assert.deepEqual(await svc.list(2026), []);
 });

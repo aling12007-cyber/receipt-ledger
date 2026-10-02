@@ -90,4 +90,4 @@ create policy "receipts read own" on storage.objects for select
 drop policy if exists "receipts upload own" on storage.objects;
 create policy "receipts upload own" on storage.objects for insert
   with check (bucket_id = 'receipts' and (storage.foldername(name))[1] = auth.uid()::text);
--- No update/delete policy on purpose: receipt images can't be altered or removed from the app.
+-- No update policy: receipt images can't be altered. Deleting a record can remove its image (policy in 002_accounting_core.sql).

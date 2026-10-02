@@ -51,3 +51,29 @@ select case when count(*) = 1 then 'PASS  reversal posted and linked' else 'FAIL
 select case when coalesce(sum(dr - cr), 0) = 0 then 'PASS  reversal cancels the entry' else 'FAIL  balance' end from journal_lines;
 select public.import_journal('{"entries":[{"legacy_ids":["rev:again"],"date":"2026-03-01","kind":"reversal","reverses":"bbbbbbbb-0000-0000-0000-000000000001","lines":[{"account":"消耗品費","cr":1100},{"account":"現金","dr":1100}]}]}'::jsonb);
 SQL
+echo "--- permanent deletion (purge_journal)"
+psql -q -d $DB -c "insert into auth.users values ('44444444-4444-4444-4444-444444444444'),('55555555-5555-5555-5555-555555555555') on conflict do nothing"
+psql -q -d $DB <<'SQL' 2>&1 | sed 's/^ *//' | grep -E 'PASS|FAIL|ERROR' | sed 's/^ERROR: */refused: /'
+\pset tuples_only on
+set role authenticated;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+select public.import_journal('{"documents":[{"storage_path":"44444444-4444-4444-4444-444444444444/2026-03/r.jpg"}],
+  "entries":[{"id":"cccccccc-0000-0000-0000-000000000001","legacy_ids":["row1"],"date":"2026-03-01","source":"migrated",
+    "transaction":{"document_path":"44444444-4444-4444-4444-444444444444/2026-03/r.jpg","date":"2026-03-01","status":"confirmed","source":"migrated"},
+    "lines":[{"account":"消耗品費","dr":1100,"tax_code":"P10","tax_amount":100},{"account":"現金","cr":1100}]},
+   {"id":"cccccccc-0000-0000-0000-000000000002","legacy_ids":["row2"],"date":"2026-03-02","lines":[{"account":"消耗品費","dr":500},{"account":"現金","cr":500}]}]}'::jsonb) is not null;
+select public.import_journal('{"entries":[{"legacy_ids":["rev:x"],"date":"2026-03-05","kind":"reversal","reverses":"cccccccc-0000-0000-0000-000000000001","lines":[{"account":"消耗品費","cr":1100,"tax_code":"P10","tax_amount":100},{"account":"現金","dr":1100}]}]}'::jsonb) is not null;
+select case when (public.purge_journal(array['cccccccc-0000-0000-0000-000000000001']::uuid[]))->>'entries' = '2' then 'PASS  entry and its reversal purged together' else 'FAIL  purge count' end;
+select case when count(*) = 1 then 'PASS  the other entry stays' else 'FAIL  other entries: ' || count(*) end from journal_entries;
+select case when (select count(*) from journal_lines) = 2 and (select count(*) from legacy_map) = 1 then 'PASS  lines and legacy map of the purged entries are gone' else 'FAIL  leftovers' end;
+select case when (select count(*) from transactions) = 0 and (select count(*) from documents) = 0 then 'PASS  transaction and document used only by it are gone' else 'FAIL  transaction/document left' end;
+select case when not exists (select 1 from audit_log where row_id in ('cccccccc-0000-0000-0000-000000000001')) then 'PASS  no trace in the audit log' else 'FAIL  audit trace' end;
+select case when coalesce(sum(dr - cr), 0) = 0 and coalesce(sum(dr), 0) = 500 then 'PASS  trial balance contains only the remaining entry' else 'FAIL  balance' end from journal_lines;
+delete from journal_entries;
+select case when count(*) = 1 then 'PASS  a plain DELETE is still refused' else 'FAIL  plain delete worked' end from journal_entries;
+insert into fiscal_years (year, locked) values (2026, true) on conflict (user_id, year) do update set locked = true;
+select public.purge_journal(array['cccccccc-0000-0000-0000-000000000002']::uuid[]);
+update fiscal_years set locked = false where year = 2026;
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select case when (public.purge_journal(array['cccccccc-0000-0000-0000-000000000002']::uuid[]))->>'entries' = '0' then 'PASS  another user cannot purge it' else 'FAIL  cross-user purge' end;
+SQL
