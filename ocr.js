@@ -225,18 +225,38 @@
     [/(振込手数料|手数料)/, "支払手数料"],
     [/(カフェ|CAFE|CAFÉ|COFFEE|コーヒー|珈琲|喫茶|咖啡|星巴克|スターバックス|STARBUCKS|ドトール|タリーズ|コメダ|ルノアール)/i, "会議費"],
     [/(居酒屋|焼肉|寿司|鮨|料亭|ダイニング|レストラン|酒場|\bBAR\b)/i, "接待交際費"],
+    [/(食堂|ラーメン|そば|うどん|定食|カレー|KITCHEN|DINER|GRILL|RESTAURANT|BISTRO|TRATTORIA|BURGER)/i, "会議費"],
     [/(電気|ガス|水道)/, "水道光熱費"],
     [/(セミナー|研修|講座|受講)/, "研修費"],
     [/(ヨドバシ|ビックカメラ|ヤマダ|ダイソー|セリア|ロフト|LOFT|ハンズ|無印|文具|事務用品|アスクル|ASKUL|AMAZON|アマゾン|ホームセンター|コーナン|カインズ)/i, "消耗品費"],
   ];
-  // The store name decides first; item lines only for non-food rules (a coffee bought at a
+  // Item review: score what was bought, not only the shop name.
+  const ITEM_RULES = {
+    meal: /(定食|丼|ラーメン|そば|蕎麦|うどん|カレー|パスタ|ピザ|寿司|焼き?鳥|餃子|ランチ|ディナー|コース|前菜|サラダ|スープ|ステーキ|ハンバーグ|天ぷら|刺身|お通し|おまかせ|セット|CHICKEN|LAMB|BEEF|PORK|FISH|SALAD|SOUP|CURRY|NOODLE|RICE|PASTA|PIZZA|BURGER|SANDWICH|LUNCH|DINNER|MOMO|DUMPLING|CHAPATI|NAAN|店内|イートイン|名様|人数|テーブル|卓番)/gi,
+    alcohol: /(生?ビール|ハイボール|サワー|ワイン|日本酒|焼酎|梅酒|飲み放題|BEER|WINE|SAKE|HIGHBALL|COCKTAIL)/gi,
+    cafe: /(コーヒー|珈琲|カフェラテ|ラテ|紅茶|ティー|ケーキ|COFFEE|LATTE|ESPRESSO|CAPPUCCINO|AMERICANO|\bTEA\b)/gi,
+    office: /(文具|ノート|ボールペン|ペン|コピー用紙|用紙|インク|トナー|USB|ケーブル|電池|ファイル|封筒|テープ|プリンタ|マウス|キーボード)/gi,
+    books: /(書籍|雑誌|新聞|文庫|単行本|BOOK|MAGAZINE)/gi,
+    postage: /(切手|はがき|ハガキ|レターパック|郵便|ゆうパック|速達)/g,
+  };
+  const count = (re, t) => (t.match(re) || []).length;
+  // The store name decides first; item lines decide when the name says nothing (a coffee bought at a
   // convenience store is not a meeting, and "Suica" on a café receipt is just how it was paid).
   const TEXT_ONLY_SKIP = new Set(["会議費", "接待交際費", "旅費交通費"]);
   function guessAccount(vendor, t) {
-    for (const [re, acc] of ACCOUNT_RULES) if (vendor && re.test(vendor)) return acc;
-    for (const [re, acc] of ACCOUNT_RULES) if (!TEXT_ONLY_SKIP.has(acc) && re.test(t)) return acc;
-    if (/(運賃|乗車|タクシー)/.test(t)) return "旅費交通費";
-    return "消耗品費";
+    for (const [re, acc] of ACCOUNT_RULES) if (vendor && re.test(vendor)) return { account: acc, hint: /会議費|接待交際費/.test(acc) ? "meal" : "" };
+    const sc = Object.fromEntries(Object.entries(ITEM_RULES).map(([k, re]) => [k, count(re, t)]));
+    const reduced = /(※|軽\s*減|8\s*%\s*対象)/.test(t);
+    // food & drink eaten in a shop (10% rate, no ※ reduced-rate marks) → meeting or entertainment
+    if (sc.meal + sc.alcohol >= 2 && !(reduced && sc.meal <= 2 && !sc.alcohol)) return { account: sc.alcohol ? "接待交際費" : "会議費", hint: "meal" };
+    if (sc.cafe >= 1 && !reduced && sc.office === 0) return { account: "会議費", hint: "meal" };
+    if (sc.postage >= 1) return { account: "通信費", hint: "" };
+    if (sc.books >= 1 && sc.books >= sc.office) return { account: "新聞図書費", hint: "" };
+    for (const [re, acc] of ACCOUNT_RULES) if (!TEXT_ONLY_SKIP.has(acc) && re.test(t)) return { account: acc, hint: "" };
+    if (/(運賃|乗車|タクシー)/.test(t)) return { account: "旅費交通費", hint: "" };
+    // takeout food / groceries (8% reduced rate) are usually personal, so flag them
+    if (reduced && sc.office === 0) return { account: "消耗品費", hint: "food8" };
+    return { account: "消耗品費", hint: "" };
   }
   function guessPayment(t) {
     if (/(クレジット|CREDIT|VISA|MASTER|JCB|AMEX|カード|信用卡|刷卡)/i.test(t)) return "card";
@@ -259,7 +279,7 @@
         date: date || null, vendor, invoice_no: null, items: "",
         amount_10: 0, amount_8: 0, amount_other: 0, total: 0,
         foreign_total: findTotal(lines, true), currency, language: lang,
-        payment: guessPayment(text), account: guessAccount(vendor, text),
+        payment: guessPayment(text), ...(({ account, hint }) => ({ account, hint }))(guessAccount(vendor, text)),
         confidence: "low", notes: "",
       };
     }
@@ -284,7 +304,7 @@
       items: "",
       amount_10: a10, amount_8: a8, amount_other: other, total,
       payment: guessPayment(text),
-      account: guessAccount(vendor, text),
+      ...(({ account, hint }) => ({ account, hint }))(guessAccount(vendor, text)),
       currency: "JPY", language: lang,
       confidence: found >= 2 ? "medium" : "low",
       notes: "",
