@@ -141,6 +141,16 @@ dialog .bd{padding:16px;overflow:auto}
 .preview-lines div{display:flex;justify-content:space-between;gap:10px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:var(--r);font-size:.9rem;z-index:20;max-width:calc(100vw - 32px)}
 .notes li{margin-bottom:6px}
+.checklist{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.checkitem{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--rule);border-radius:var(--r);padding:10px 12px;background:var(--paper)}
+.checkitem b{display:block;font-weight:500}
+.form-table td.no{font-family:var(--f-display);color:var(--muted);width:2.2em;text-align:center}
+.form-table tr.sum td{font-weight:700;border-top:1px solid var(--rule-strong)}
+.form-table tr.blank td.nm{color:var(--ai)}
+.form-table tr.zero td{color:var(--muted)}
+.form-table tr.head td{background:var(--paper);font-weight:700}
+.bsinputs{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+details>summary{list-style:none}details>summary::-webkit-details-marker{display:none}
 .confirm-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.85rem}
 </style>
 <style>
@@ -158,6 +168,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/ocr.js"></script>
+<script src="/filing.js"></script>
 </body>
 </html>
 </head>
@@ -203,6 +214,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
     <button role="tab" data-tab="scan" aria-selected="true" data-i18n="tabScan"></button>
     <button role="tab" data-tab="journal" aria-selected="false" data-i18n="tabJournal"></button>
     <button role="tab" data-tab="summary" aria-selected="false" data-i18n="tabSummary"></button>
+    <button role="tab" data-tab="filing" aria-selected="false" data-i18n="tabFiling"></button>
     <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tabSettings"></button>
   </nav>
 
@@ -280,6 +292,59 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
     </div>
   </section>
 
+  <section data-panel="filing" hidden class="stack">
+    <div class="sheet pad stack">
+      <div class="row" style="justify-content:space-between"><h2 data-i18n="fiStatus"></h2><button class="btn" id="expFiling" data-i18n="expFiling"></button></div>
+      <div class="checklist" id="fStatus"></div>
+    </div>
+    <div class="sheet">
+      <div class="pad stack" style="gap:6px"><h2 id="plTitle"></h2><p class="small muted" style="margin:0" data-i18n="plSub"></p><p class="small" style="margin:0" id="plNotes"></p></div>
+      <div class="tablewrap"><table id="fPL" class="form-table"><tbody></tbody></table></div>
+    </div>
+    <div class="sheet pad stack">
+      <h2 data-i18n="p2Title"></h2>
+      <div class="tablewrap"><table id="fMonthly" class="form-table"><thead><tr><th data-i18n="thMonth"></th><th class="r">売上（収入）金額</th><th class="r">仕入金額</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+      <h3>地代家賃の内訳</h3>
+      <div class="tablewrap"><table id="fRent" class="form-table"><thead><tr><th>支払先</th><th class="r">本年中の賃借料</th><th class="r">左の賃借料のうち必要経費算入額</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="sheet pad stack">
+      <h2 data-i18n="p3Title"></h2>
+      <p class="small muted" style="margin:0" data-i18n="p3Sub"></p>
+      <div id="fBig"></div>
+      <div class="tablewrap"><table id="fDep" class="form-table"><thead><tr><th>名称</th><th>取得年月</th><th class="r">取得価額</th><th>償却方法</th><th class="r">耐用年数</th><th class="r">償却率</th><th class="r">本年中の償却期間</th><th class="r">本年分の償却費</th><th class="r">事業専用割合</th><th class="r">本年分の必要経費算入額</th><th class="r">未償却残高（期末）</th><th></th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+      <details id="assetBox"><summary class="btn" style="display:inline-flex" data-i18n="aAddOpen"></summary>
+        <div class="stack" style="margin-top:12px">
+          <div class="grid">
+            <label class="f span2" for="aName"><span data-i18n="aName"></span><input id="aName" placeholder="MacBook Pro 14"></label>
+            <label class="f" for="aPreset"><span data-i18n="aPreset"></span><select id="aPreset"></select></label>
+            <label class="f" for="aDate"><span data-i18n="aDate"></span><input type="month" id="aDate"></label>
+            <label class="f" for="aCost"><span data-i18n="aCost"></span><input type="number" inputmode="numeric" class="num" id="aCost"></label>
+            <label class="f" for="aMethod"><span data-i18n="aMethod"></span><select id="aMethod"></select></label>
+            <label class="f" for="aLife"><span data-i18n="aLife"></span><input type="number" min="2" max="50" class="num" id="aLife"></label>
+            <label class="f" for="aRatio"><span data-i18n="aRatio"></span><input type="number" min="0" max="100" class="num" id="aRatio" value="100"></label>
+            <label class="f" for="aPaid"><span data-i18n="aPaid"></span><select id="aPaid"></select></label>
+          </div>
+          <div class="row"><button class="btn primary" id="aSave"></button><button class="btn ghost" id="aCancel" data-i18n="cancel" hidden></button><span class="small" id="aMsg"></span></div>
+        </div>
+      </details>
+    </div>
+    <div class="sheet pad stack" id="bsBox">
+      <h2 data-i18n="p4Title"></h2>
+      <p class="small muted" style="margin:0" data-i18n="p4Sub"></p>
+      <div class="bsinputs">
+        <div class="stack" style="gap:8px"><h3 data-i18n="bsOpen"></h3><div class="grid" id="bsOpenIn"></div></div>
+        <div class="stack" style="gap:8px"><h3 data-i18n="bsClose"></h3><div class="grid" id="bsCloseIn"></div></div>
+      </div>
+      <p class="small" id="bsMsg" style="margin:0"></p>
+      <div class="tablewrap"><table id="fBS" class="form-table"><thead><tr><th>科目</th><th class="r">1月1日（期首）</th><th class="r">12月31日（期末）</th></tr></thead><tbody></tbody></table></div>
+      <div class="small" id="bsAdj"></div>
+    </div>
+    <div class="sheet pad stack">
+      <h2 data-i18n="stepsTitle"></h2>
+      <ol class="small notes" id="fSteps" style="margin:0;padding-left:1.3em"></ol>
+    </div>
+  </section>
+
   <section data-panel="settings" hidden class="stack">
     <div class="sheet pad stack">
       <h2 data-i18n="setTitle"></h2>
@@ -316,7 +381,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 (function(){
 // ===== i18n =====
 const I18N={
-en:{mealNote:"Food & drink: a meal on your own is not a business expense. Meeting → 会議費, entertaining clients → 接待交際費. Note who attended in the memo.",food8Note:"Takeout food / groceries (8%) are usually personal. Record only if it is for the business.",rereading:"Looks like {l} — reading again…",detected:"Read as {l}",lang_ja:"Japanese",lang_en:"English",lang_zh:"Chinese",fxNote:"Foreign currency: {c} {a}. Convert it to yen and enter it under Non-taxable — overseas purchases are outside Japanese consumption tax.",ocrReading:"Reading on your device (free)…",ocrLoading:"Downloading Japanese text data (first time only, about 15 MB)…",ocrFilled:"Read on your device — check the amounts and account",eOcr:"On-device reading failed: ",authSub:"Sign in to your own ledger. Your receipts and books are stored in your Supabase database.",email:"Email",password:"Password (8+ characters)",signIn:"Sign in",signUp:"Create account",signOut:"Sign out",noAcct:"No account yet? Create one",haveAcct:"Have an account? Sign in",checkEmail:"Check your inbox and open the confirmation link, then sign in.",authErr:"Sign-in failed: ",eServer:"The server could not read the receipt: ",eAuthApi:"Your account isn't allowed to use AI reading. Ask the site owner to add your email.",eCfg:"The site isn't configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY on the server.",eyebrow:"Japanese sole proprietor · 個人事業主",yearLabel:"Tax year (Jan–Dec)",tabScan:"Scan receipts",tabJournal:"Journal",tabSummary:"Summary",tabSettings:"Settings",
+en:{tabFiling:"Tax filing",fiStatus:"Readiness",expFiling:"Export filing worksheet (CSV)",fiDone:"Done",fiTodo:"To do",fiNA:"Not needed",fiIncome:"Income recorded",fiIncomeD:"{n} entries · {v}",fiAssets:"Fixed assets",fiAssetsD:"{n} registered",fiAssetsBig:"{n} expenses of ¥100,000+ to review",fiOpen:"Opening balances (Jan 1)",fiOpenD:"From last year's balance sheet or bank book",fiClose:"Closing balances (Dec 31)",fiCloseD:"Cash and bank balance on Dec 31",fiBSnot:"Only needed for the ¥650,000 / ¥550,000 deduction",fiBalanced:"Balance sheet balances",plSub:"Type each amount into the same line at the NTA filing site (確定申告書等作成コーナー). Amounts are the business share after 家事按分.",plBlank:"Blank rows (空欄): type the account name shown here into the blank line.",plMerged:"Only six blank rows exist, so {list} were added to 雑費.",plNote:"Rows ㉞–㊷ (allowances, family-employee wages) stay empty.",plWhite:"For a white return the 収支内訳書 groups lines differently; enter each account under the same name.",smallOver:"The 少額減価償却資産 total {v} is over the ¥3,000,000 yearly cap — use 定額法 for the excess.",p2Title:"Page 2 — monthly sales and rent details",thMonth:"Month",noRent:"No 地代家賃 entries this year.",p3Title:"Page 3 — 減価償却費の計算 (depreciation)",p3Sub:"Register computers, cars and other items costing ¥100,000 or more. This year's depreciation is added to ⑱ 減価償却費 automatically.",bigWarn:"These expenses are ¥100,000 or more. If they are equipment you will use for years, register them below as fixed assets and delete the expense entry:",noAssets:"No fixed assets registered.",aAddOpen:"+ Register a fixed asset",aName:"Item name",aPreset:"Type (useful life)",aDate:"Month acquired",aCost:"Cost (tax included)",aMethod:"Method",aLife:"Useful life (years)",aRatio:"Business use %",aPaid:"Paid with",aAdd:"Add asset",aEdit:"Edit",aErrReq:"Enter the item name, month and cost.",aErrCheap:"Under ¥100,000 → record it as an expense (消耗品費) instead.",aErrLump:"一括償却 applies to items from ¥100,000 to under ¥200,000.",aErrSmall:"The small-asset rule needs a blue return and a cost under ¥{lim}.",aErrLife:"Enter a useful life between 2 and 50 years.",p4Title:"Page 4 — 貸借対照表 (balance sheet)",p4Sub:"Enter balances from your bank book or statements. Money that moved without an entry in the books is treated as 事業主貸 (taken out for personal use) or 事業主借 (put in from your own pocket) — the standard way sole proprietors close the year.",bsOpen:"January 1 (opening)",bsClose:"December 31 (closing)",bsSaved:"Saved",bsBalanced:"Balanced ✓",bsDiff:"Off by {v} — check the opening balances",bsNeedClose:"Enter the Dec 31 balances",bsAdjBankLess:"Bank is {v} lower than the books → counted as 事業主貸 (personal withdrawals).",bsAdjBankMore:"Bank is {v} higher than the books → counted as 事業主借 (money you put in).",bsAdjCashLess:"Cash is {v} lower than the books → counted as 事業主貸.",bsAdjCashMore:"Cash is {v} higher than the books → counted as 事業主借.",stepsTitle:"How to file",steps:["Finish the year's entries: all income, then check accounts in the Journal.", "Register fixed assets (page 3) and enter balances (page 4) if you use a blue return.", "Open the NTA site 「確定申告書等作成コーナー」 → 作成開始 → 決算書・収支内訳書.", "Copy pages 1–4 line by line from this tab (or export the CSV and keep it open).", "Continue to 所得税の確定申告書; the income carries over. Add deductions (insurance, medical, etc.).", "Submit with e-Tax using your My Number card on a smartphone. e-Tax is required for the ¥650,000 deduction. Deadline: March 15."],mealNote:"Food & drink: a meal on your own is not a business expense. Meeting → 会議費, entertaining clients → 接待交際費. Note who attended in the memo.",food8Note:"Takeout food / groceries (8%) are usually personal. Record only if it is for the business.",rereading:"Looks like {l} — reading again…",detected:"Read as {l}",lang_ja:"Japanese",lang_en:"English",lang_zh:"Chinese",fxNote:"Foreign currency: {c} {a}. Convert it to yen and enter it under Non-taxable — overseas purchases are outside Japanese consumption tax.",ocrReading:"Reading on your device (free)…",ocrLoading:"Downloading Japanese text data (first time only, about 15 MB)…",ocrFilled:"Read on your device — check the amounts and account",eOcr:"On-device reading failed: ",authSub:"Sign in to your own ledger. Your receipts and books are stored in your Supabase database.",email:"Email",password:"Password (8+ characters)",signIn:"Sign in",signUp:"Create account",signOut:"Sign out",noAcct:"No account yet? Create one",haveAcct:"Have an account? Sign in",checkEmail:"Check your inbox and open the confirmation link, then sign in.",authErr:"Sign-in failed: ",eServer:"The server could not read the receipt: ",eAuthApi:"Your account isn't allowed to use AI reading. Ask the site owner to add your email.",eCfg:"The site isn't configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY on the server.",eyebrow:"Japanese sole proprietor · 個人事業主",yearLabel:"Tax year (Jan–Dec)",tabScan:"Scan receipts",tabJournal:"Journal",tabSummary:"Summary",tabSettings:"Settings",
  dropTitle:"Add receipts",dropSub:"Pick several photos at once, or drag them here on a computer. Nothing is posted until you confirm.",pickCam:"Take photo",pickLib:"Choose from photos",
  manualExp:"Add an expense manually",manualInc:"Record income (sales)",queueHint:"Confirmed receipts appear in the Journal. Photos are kept with each entry so you can search them later, as the Electronic Bookkeeping Act requires.",
  fFrom:"Date from",fTo:"Date to",fMin:"Amount min",fMax:"Amount max",fQ:"Vendor / memo",fAcc:"Account",all:"All",expJournal:"Export journal CSV",
@@ -346,7 +411,7 @@ en:{mealNote:"Food & drink: a meal on your own is not a business expense. Meetin
  noImg:"This view can't send images to the AI. Please enter it by hand.",noAI:"AI reading is off. Please enter it by hand.",eGrant:"You didn't allow AI on this page. Enter by hand, or reload and allow it.",eRate:"Too many AI requests. Try again shortly or enter by hand.",eJson:"The AI reply was malformed. Retry or enter by hand.",eImg:"This image couldn't be read (format or size).",eAI:"AI reading failed: ",
  noDl:"Downloads aren't available in this view.",exported:"Exported {f}",expFail:"Export failed: ",setLocal:"Not connected to storage; settings apply to this visit only.",
  era:"Reiwa",csvJ:"journal",csvS:"summary",month:"Month",income:"Income",expense:"Expense"},
-ja:{mealNote:"飲食代：一人での食事は原則経費になりません。打合せなら会議費、取引先の接待なら接待交際費。備考に相手と人数を書いておくと安心です。",food8Note:"持ち帰りの食品・食料品（8%）は通常は私的な支出です。事業用の場合のみ記帳してください。",rereading:"{l}のレシートと判断し、再読取中…",detected:"認識言語：{l}",lang_ja:"日本語",lang_en:"英語",lang_zh:"中国語",fxNote:"外貨：{c} {a}。円に換算して「不課税・非課税」欄に入力してください（国外取引は消費税の対象外です）。",ocrReading:"端末内で読み取り中（無料）…",ocrLoading:"日本語データをダウンロード中（初回のみ・約15MB）…",ocrFilled:"端末内で読み取りました。金額と科目を確認してください",eOcr:"端末内の読み取りに失敗しました：",authSub:"自分の帳簿にログインします。レシートと帳簿はあなたの Supabase データベースに保存されます。",email:"メールアドレス",password:"パスワード（8文字以上）",signIn:"ログイン",signUp:"アカウント作成",signOut:"ログアウト",noAcct:"アカウントを作成",haveAcct:"ログインに戻る",checkEmail:"確認メールのリンクを開いてから、ログインしてください。",authErr:"ログインできませんでした：",eServer:"サーバーで読み取りに失敗しました：",eAuthApi:"このアカウントはAI読取を利用できません。管理者にメールアドレスの追加を依頼してください。",eCfg:"サイトの設定が未完了です。サーバーに SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。",eyebrow:"個人事業主の帳簿",yearLabel:"年分（1月〜12月）",tabScan:"レシート撮影",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
+ja:{tabFiling:"申告準備",fiStatus:"準備状況",expFiling:"決算書転記用CSVを出力",fiDone:"OK",fiTodo:"未完了",fiNA:"不要",fiIncome:"売上の記帳",fiIncomeD:"{n}件・{v}",fiAssets:"固定資産",fiAssetsD:"{n}件登録",fiAssetsBig:"10万円以上の経費が{n}件あります",fiOpen:"期首残高（1月1日）",fiOpenD:"前年の貸借対照表または通帳から",fiClose:"期末残高（12月31日）",fiCloseD:"12月31日の現金・預金残高",fiBSnot:"65万円・55万円控除の場合のみ必要",fiBalanced:"貸借一致",plSub:"国税庁「確定申告書等作成コーナー」の同じ欄にそのまま入力してください。金額は家事按分後の事業分です。",plBlank:"空欄の行には、ここに表示された科目名を記入します。",plMerged:"空欄が6行しかないため、{list}は雑費に含めています。",plNote:"㉞〜㊷（引当金・専従者給与など）は空欄のままです。",plWhite:"白色申告の収支内訳書は欄の並びが異なります。同じ科目名の欄に入力してください。",smallOver:"少額減価償却資産の合計{v}が年300万円の上限を超えています。超過分は定額法にしてください。",p2Title:"2ページ：月別売上（収入）金額及び仕入金額・地代家賃の内訳",thMonth:"月",noRent:"本年の地代家賃の記帳はありません。",p3Title:"3ページ：減価償却費の計算",p3Sub:"10万円以上のパソコン・車などを登録すると、本年分の償却費が⑱減価償却費に自動で入ります。",bigWarn:"次の経費は10万円以上です。数年使う備品なら固定資産として下に登録し、経費の仕訳は削除してください：",noAssets:"固定資産は登録されていません。",aAddOpen:"＋ 固定資産を登録",aName:"名称",aPreset:"種類（耐用年数）",aDate:"取得年月",aCost:"取得価額（税込）",aMethod:"償却方法",aLife:"耐用年数",aRatio:"事業専用割合 %",aPaid:"支払方法",aAdd:"登録",aEdit:"編集",aErrReq:"名称・取得年月・取得価額を入力してください。",aErrCheap:"10万円未満は固定資産ではなく消耗品費で記帳します。",aErrLump:"一括償却資産は10万円以上20万円未満が対象です。",aErrSmall:"少額減価償却資産の特例は青色申告で、{lim}円未満が対象です。",aErrLife:"耐用年数は2〜50年で入力してください。",p4Title:"4ページ：貸借対照表",p4Sub:"通帳や明細の残高を入力してください。帳簿にない入出金は、事業主貸（生活費などの引き出し）・事業主借（個人資金の投入）として調整します。個人事業主の一般的な処理です。",bsOpen:"1月1日（期首）",bsClose:"12月31日（期末）",bsSaved:"保存しました",bsBalanced:"貸借一致 ✓",bsDiff:"{v}の差額があります。期首残高を確認してください",bsNeedClose:"12月31日の残高を入力してください",bsAdjBankLess:"預金が帳簿より{v}少ない → 事業主貸（私的な引き出し）として計上。",bsAdjBankMore:"預金が帳簿より{v}多い → 事業主借（個人資金の入金）として計上。",bsAdjCashLess:"現金が帳簿より{v}少ない → 事業主貸として計上。",bsAdjCashMore:"現金が帳簿より{v}多い → 事業主借として計上。",stepsTitle:"申告の手順",steps:["1年分の記帳を終える：売上をすべて入力し、仕訳帳で科目を確認。", "青色申告なら固定資産（3ページ）と残高（4ページ）を入力。", "国税庁「確定申告書等作成コーナー」→ 作成開始 →「決算書・収支内訳書」を選ぶ。", "このタブの1〜4ページを欄ごとに転記（CSVを出力して横に開いておくと便利）。", "続けて「所得税の確定申告書」へ。所得は自動で引き継がれます。社会保険料・医療費などの控除を入力。", "マイナンバーカードとスマホで e-Tax 送信。65万円控除は e-Tax が条件です。期限は3月15日。"],mealNote:"飲食代：一人での食事は原則経費になりません。打合せなら会議費、取引先の接待なら接待交際費。備考に相手と人数を書いておくと安心です。",food8Note:"持ち帰りの食品・食料品（8%）は通常は私的な支出です。事業用の場合のみ記帳してください。",rereading:"{l}のレシートと判断し、再読取中…",detected:"認識言語：{l}",lang_ja:"日本語",lang_en:"英語",lang_zh:"中国語",fxNote:"外貨：{c} {a}。円に換算して「不課税・非課税」欄に入力してください（国外取引は消費税の対象外です）。",ocrReading:"端末内で読み取り中（無料）…",ocrLoading:"日本語データをダウンロード中（初回のみ・約15MB）…",ocrFilled:"端末内で読み取りました。金額と科目を確認してください",eOcr:"端末内の読み取りに失敗しました：",authSub:"自分の帳簿にログインします。レシートと帳簿はあなたの Supabase データベースに保存されます。",email:"メールアドレス",password:"パスワード（8文字以上）",signIn:"ログイン",signUp:"アカウント作成",signOut:"ログアウト",noAcct:"アカウントを作成",haveAcct:"ログインに戻る",checkEmail:"確認メールのリンクを開いてから、ログインしてください。",authErr:"ログインできませんでした：",eServer:"サーバーで読み取りに失敗しました：",eAuthApi:"このアカウントはAI読取を利用できません。管理者にメールアドレスの追加を依頼してください。",eCfg:"サイトの設定が未完了です。サーバーに SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。",eyebrow:"個人事業主の帳簿",yearLabel:"年分（1月〜12月）",tabScan:"レシート撮影",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
  dropTitle:"レシートを追加",dropSub:"写真は複数枚まとめて選べます。パソコンではここにドラッグもできます。確認するまで記帳されません。",pickCam:"撮影する",pickLib:"写真から選ぶ",
  manualExp:"経費を手入力",manualInc:"売上を記帳",queueHint:"確定したレシートは仕訳帳に入ります。画像も一緒に保存され、電子帳簿保存法の検索要件に対応します。",
  fFrom:"取引日（から）",fTo:"取引日（まで）",fMin:"金額（下限）",fMax:"金額（上限）",fQ:"取引先・摘要",fAcc:"勘定科目",all:"すべて",expJournal:"仕訳帳をCSV出力",
@@ -376,7 +441,7 @@ ja:{mealNote:"飲食代：一人での食事は原則経費になりません。
  noImg:"この画面ではAIに画像を送れません。手入力してください。",noAI:"AI読取が無効です。手入力してください。",eGrant:"AIの利用が許可されていません。手入力するか、再読み込みして許可してください。",eRate:"AIの利用が集中しています。少し待つか手入力してください。",eJson:"AIの応答形式が不正です。再読取または手入力してください。",eImg:"この画像を読み取れません（形式またはサイズ）。",eAI:"AI読取に失敗しました：",
  noDl:"この画面ではダウンロードできません。",exported:"{f} を出力しました",expFail:"出力に失敗しました：",setLocal:"保存先に未接続のため、設定は今回のみ有効です。",
  era:"令和",csvJ:"仕訳帳",csvS:"科目別集計",month:"月",income:"収入",expense:"経費"},
-zh:{mealNote:"餐飲費：自己一個人吃飯原則上不能列經費。開會討論選会議費，招待客戶選接待交際費，建議在備註寫上對象和人數。",food8Note:"外帶食品、食材（8%）通常是私人支出，只有事業用途才入帳。",rereading:"判斷為{l}收據，重新辨識中…",detected:"辨識語言：{l}",lang_ja:"日文",lang_en:"英文",lang_zh:"中文",fxNote:"外幣：{c} {a}。請換算成日圓後填入「不課税・非課税」欄（海外消費不適用日本消費稅）。",ocrReading:"在你的裝置上辨識中（免費）…",ocrLoading:"下載日文辨識資料中（僅第一次，約 15 MB）…",ocrFilled:"已在裝置上辨識，請核對金額與科目",eOcr:"裝置上辨識失敗：",authSub:"登入你自己的帳冊。收據與帳冊存放在你的 Supabase 資料庫。",email:"電子郵件",password:"密碼（8 個字元以上）",signIn:"登入",signUp:"建立帳號",signOut:"登出",noAcct:"還沒有帳號？建立一個",haveAcct:"已有帳號？登入",checkEmail:"請到信箱打開確認連結，再回來登入。",authErr:"登入失敗：",eServer:"伺服器讀取收據失敗：",eAuthApi:"這個帳號不能使用 AI 辨識，請網站管理者把你的 email 加入允許名單。",eCfg:"網站尚未設定完成，請在伺服器設定 SUPABASE_URL 與 SUPABASE_ANON_KEY。",eyebrow:"日本個人事業主帳冊",yearLabel:"年分（1月〜12月）",tabScan:"拍收據",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
+zh:{tabFiling:"申報準備",fiStatus:"準備狀況",expFiling:"匯出決算書轉記 CSV",fiDone:"完成",fiTodo:"待完成",fiNA:"不需要",fiIncome:"收入登錄",fiIncomeD:"{n} 筆・{v}",fiAssets:"固定資產",fiAssetsD:"已登錄 {n} 件",fiAssetsBig:"有 {n} 筆 10 萬円以上的經費待確認",fiOpen:"期初餘額（1/1）",fiOpenD:"照前一年的資產負債表或存摺",fiClose:"期末餘額（12/31）",fiCloseD:"12 月 31 日的現金、存款餘額",fiBSnot:"只有 65 萬／55 萬円控除才需要",fiBalanced:"資產負債平衡",plSub:"到國稅廳「確定申告書等作成コーナー」照同一欄位填入即可。金額為家事按分後的事業部分。",plBlank:"空欄的行請照這裡顯示的科目名稱填寫。",plMerged:"空欄只有 6 行，因此 {list} 併入雑費。",plNote:"㉞〜㊷（各種引当金、專從者給與）保持空白。",plWhite:"白色申告的収支内訳書欄位順序不同，請填在相同科目名稱的欄位。",smallOver:"少額減価償却資產合計 {v}，超過每年 300 萬円上限，超過部分請改用定額法。",p2Title:"第 2 頁：月別売上・仕入金額、地代家賃明細",thMonth:"月",noRent:"今年沒有地代家賃的記錄。",p3Title:"第 3 頁：減価償却費の計算（折舊）",p3Sub:"登錄 10 萬円以上的電腦、汽車等，當年折舊會自動計入⑱減価償却費。",bigWarn:"以下經費在 10 萬円以上。如果是會用好幾年的設備，請在下方登錄為固定資產，並刪除原本的經費仕訳：",noAssets:"尚未登錄固定資產。",aAddOpen:"＋ 登錄固定資產",aName:"名稱",aPreset:"種類（耐用年數）",aDate:"取得年月",aCost:"取得金額（含稅）",aMethod:"折舊方法",aLife:"耐用年數",aRatio:"事業使用比例 %",aPaid:"支付方式",aAdd:"登錄",aEdit:"編輯",aErrReq:"請填寫名稱、取得年月、取得金額。",aErrCheap:"未滿 10 萬円請直接記為消耗品費，不用登錄資產。",aErrLump:"一括償却只適用 10 萬以上、未滿 20 萬円。",aErrSmall:"少額特例限青色申告，且金額未滿 {lim} 円。",aErrLife:"耐用年數請填 2〜50 年。",p4Title:"第 4 頁：貸借対照表（資產負債表）",p4Sub:"請依存摺、對帳單填入餘額。帳上沒有記錄的出入金，會以事業主貸（提領生活費）或事業主借（投入個人資金）調整，這是個人事業主的一般作法。",bsOpen:"1 月 1 日（期初）",bsClose:"12 月 31 日（期末）",bsSaved:"已儲存",bsBalanced:"借貸平衡 ✓",bsDiff:"差額 {v}，請確認期初餘額",bsNeedClose:"請填寫 12/31 的餘額",bsAdjBankLess:"存款比帳上少 {v} → 視為事業主貸（私人提領）。",bsAdjBankMore:"存款比帳上多 {v} → 視為事業主借（投入個人資金）。",bsAdjCashLess:"現金比帳上少 {v} → 視為事業主貸。",bsAdjCashMore:"現金比帳上多 {v} → 視為事業主借。",stepsTitle:"申報步驟",steps:["完成整年記帳：收入全部登錄，並在仕訳帳確認科目。", "青色申告的話，登錄固定資產（第 3 頁）並填寫餘額（第 4 頁）。", "打開國稅廳「確定申告書等作成コーナー」→ 作成開始 → 選「決算書・収支内訳書」。", "照這個分頁第 1〜4 頁逐欄轉記（匯出 CSV 放在旁邊對照更方便）。", "接著做「所得税の確定申告書」，所得會自動帶入，再填社會保險、醫療費等扣除。", "用個人番號卡＋手機以 e-Tax 送出。65 萬円控除必須用 e-Tax。期限是 3 月 15 日。"],mealNote:"餐飲費：自己一個人吃飯原則上不能列經費。開會討論選会議費，招待客戶選接待交際費，建議在備註寫上對象和人數。",food8Note:"外帶食品、食材（8%）通常是私人支出，只有事業用途才入帳。",rereading:"判斷為{l}收據，重新辨識中…",detected:"辨識語言：{l}",lang_ja:"日文",lang_en:"英文",lang_zh:"中文",fxNote:"外幣：{c} {a}。請換算成日圓後填入「不課税・非課税」欄（海外消費不適用日本消費稅）。",ocrReading:"在你的裝置上辨識中（免費）…",ocrLoading:"下載日文辨識資料中（僅第一次，約 15 MB）…",ocrFilled:"已在裝置上辨識，請核對金額與科目",eOcr:"裝置上辨識失敗：",authSub:"登入你自己的帳冊。收據與帳冊存放在你的 Supabase 資料庫。",email:"電子郵件",password:"密碼（8 個字元以上）",signIn:"登入",signUp:"建立帳號",signOut:"登出",noAcct:"還沒有帳號？建立一個",haveAcct:"已有帳號？登入",checkEmail:"請到信箱打開確認連結，再回來登入。",authErr:"登入失敗：",eServer:"伺服器讀取收據失敗：",eAuthApi:"這個帳號不能使用 AI 辨識，請網站管理者把你的 email 加入允許名單。",eCfg:"網站尚未設定完成，請在伺服器設定 SUPABASE_URL 與 SUPABASE_ANON_KEY。",eyebrow:"日本個人事業主帳冊",yearLabel:"年分（1月〜12月）",tabScan:"拍收據",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
  dropTitle:"新增收據",dropSub:"相簿可一次選多張，電腦上也可以直接拖曳到這裡。你確認後才會入帳。",pickCam:"拍照",pickLib:"從相簿選擇",
  manualExp:"手動記一筆支出",manualInc:"記一筆收入（売上）",queueHint:"確認入帳的收據會出現在「仕訳帳」，照片一併保存，方便依電子帳簿保存法查詢。",
  fFrom:"取引日 起",fTo:"取引日 迄",fMin:"金額 下限",fMax:"金額 上限",fQ:"取引先・摘要",fAcc:"勘定科目",all:"全部",expJournal:"匯出仕訳帳 CSV",
@@ -412,7 +477,7 @@ const ACC_TR={
  "旅費交通費":["Travel & transport","交通費"],"通信費":["Communication","通訊費"],"消耗品費":["Supplies","消耗品"],"会議費":["Meetings","會議費"],"接待交際費":["Entertainment","交際費"],
  "新聞図書費":["Books & subscriptions","書報費"],"広告宣伝費":["Advertising","廣告費"],"支払手数料":["Fees & commissions","手續費"],"外注工賃":["Outsourcing","外包費"],"地代家賃":["Rent","房租"],
  "水道光熱費":["Utilities","水電瓦斯"],"荷造運賃":["Shipping","運費"],"研修費":["Training","研修費"],"修繕費":["Repairs","修繕費"],"損害保険料":["Insurance","保險費"],"租税公課":["Taxes & dues","稅捐規費"],
- "福利厚生費":["Welfare","福利費"],"給料賃金":["Wages","薪資"],"利子割引料":["Interest","利息"],"減価償却費":["Depreciation","折舊"],"雑費":["Miscellaneous","雜費"],
+ "福利厚生費":["Welfare","福利費"],"給料賃金":["Wages","薪資"],"利子割引料":["Interest","利息"],"減価償却費":["Depreciation","折舊"],"仕入高":["Purchases (goods for resale)","進貨成本"],"雑費":["Miscellaneous","雜費"],
  "事業主借":["Owner's contribution","業主借入"],"現金":["Cash","現金"],"普通預金":["Bank account","銀行存款"],"未払金":["Payable (card)","應付款"],"売掛金":["Receivable","應收帳款"],"事業主貸":["Owner's drawings","業主提領"],"売上高":["Sales","營業收入"]};
 let lang="en";
 try{const s=localStorage.getItem("lang");if(s&&I18N[s])lang=s;else{const n=(navigator.language||"").toLowerCase();lang=n.startsWith("ja")?"ja":n.startsWith("zh")?"zh":"en"}}catch(e){}
@@ -420,7 +485,8 @@ const t=(k,v)=>{let s=(I18N[lang][k]??I18N.en[k]??k);if(v)for(const x in v)s=s.r
 const accText=a=>{if(lang==="ja"||!ACC_TR[a])return a;return ACC_TR[a][lang==="en"?0:1]+" · "+a};
 const accHTML=a=>{if(lang==="ja"||!ACC_TR[a])return esc(a);return esc(ACC_TR[a][lang==="en"?0:1])+`<span class="jp">${esc(a)}</span>`};
 
-const EXPENSE_ACCOUNTS=Object.keys(ACC_TR).slice(0,21);
+const NON_EXPENSE=["事業主借","現金","普通預金","未払金","売掛金","事業主貸","売上高"];
+const EXPENSE_ACCOUNTS=Object.keys(ACC_TR).filter(a=>!NON_EXPENSE.includes(a));
 const CREDIT_ACCOUNTS=["事業主借","現金","普通預金","未払金"];
 const INCOME_DEBIT=["普通預金","売掛金","現金","事業主貸"];
 const yen=n=>"¥"+Math.round(n||0).toLocaleString("ja-JP");
@@ -776,6 +842,158 @@ $("#expSummary").onclick=()=>{
   save(`${t("csvS")}_${year}.csv`,csv(rows));
 };
 
+// ===== filing (申告準備) =====
+async function persistSettings(){
+  if(!sb||!uid)return {message:t("errStore")};
+  const {error}=await sb.from("settings").upsert({user_id:uid,data:settings,updated_at:new Date().toISOString()});
+  return error;
+}
+let saveTimer=null;
+function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{const e=await persistSettings();const m=$("#bsMsg");if(m){m.textContent=e?t("saveFail")+": "+e.message:t("bsSaved");m.style.color=e?"var(--shu)":""}},700)}
+const BS_OPEN=[["cash","現金"],["bank","普通預金"],["ar","売掛金"],["inv","棚卸資産"],["prepaid","前払金"],["ap","未払金"],["loan","借入金"],["advance","前受金"],["deposit","預り金"]];
+const BS_CLOSE=[["cash","現金"],["bank","普通預金"],["ar","売掛金"],["inv","棚卸資産"],["ap","未払金"]];
+const BS_TR={現金:["Cash","現金"],普通預金:["Bank (business account)","銀行存款"],売掛金:["Unpaid invoices (receivable)","應收帳款"],棚卸資産:["Inventory","存貨"],前払金:["Prepayments","預付款"],未払金:["Unpaid card bills / payables","應付款"],借入金:["Loans","借款"],前受金:["Advances received","預收款"],預り金:["Deposits held","代收款"]};
+const bsLabel=k=>lang==="ja"?k:`${BS_TR[k][lang==="en"?0:1]}（${k}）`;
+function yearBS(){settings.bs=settings.bs||{};const y=String(year);settings.bs[y]=settings.bs[y]||{open:{},close:{}};return settings.bs[y]}
+function assetsList(){settings.assets=settings.assets||[];return settings.assets}
+function filingCalc(){
+  const b=yearBS(),dep=Filing.depreciation(assetsList(),year);
+  const invClose=b.close.inv===""||b.close.inv==null?b.open.inv:b.close.inv;
+  const pl=Filing.profitLoss({entries,year,totalOf,bizOf,invOpen:b.open.inv,invClose,depBusiness:dep.business,deduction:DEDUCT[settings.filing]||0});
+  const bs=Filing.balanceSheet({entries,year,linesOf,open:b.open,close:b.close,dep,income:pl.income});
+  return {b,dep,pl,bs};
+}
+const filled=o=>Object.values(o||{}).some(v=>v!==""&&v!=null);
+let editingAsset=-1;
+function renderFiling(){
+  if(typeof Filing==="undefined")return;
+  const {b,dep,pl,bs}=filingCalc();
+  const blue=isBlue(),needBS=settings.filing==="blue65"||settings.filing==="blue55";
+  const ys=yearEntries(),incomeN=ys.filter(e=>e.type==="income").length;
+  const big=Filing.bigItems(entries,year);
+  // status
+  const item=(ok,title,detail,state)=>`<div class="checkitem"><span class="chip ${state==="na"?"inc":ok?"ok":"no"}">${state==="na"?t("fiNA"):ok?t("fiDone"):t("fiTodo")}</span><div><b>${title}</b><span class="small muted">${detail}</span></div></div>`;
+  $("#fStatus").innerHTML=[
+    item(true,t("sFiling"),esc(t("f_"+settings.filing))),
+    item(incomeN>0,t("fiIncome"),t("fiIncomeD",{n:incomeN,v:yen(pl.sales)})),
+    item(!big.length,t("fiAssets"),big.length?t("fiAssetsBig",{n:big.length}):t("fiAssetsD",{n:dep.rows.length})),
+    needBS?item(filled(b.open),t("fiOpen"),t("fiOpenD")):item(true,t("fiOpen"),t("fiBSnot"),"na"),
+    needBS?item(bs.closeEntered,t("fiClose"),t("fiCloseD")):item(true,t("fiClose"),t("fiBSnot"),"na"),
+    needBS?item(bs.diff===0&&bs.closeEntered,t("fiBalanced"),bs.diff===0?t("bsBalanced"):t("bsDiff",{v:yen(bs.diff)})):"",
+  ].join("");
+  // p.1
+  $("#plTitle").textContent=blue?"青色申告決算書（一般用）1ページ：損益計算書":"収支内訳書（一般用）：収支の計算";
+  const notes=[];
+  if(pl.rows.some(r=>r.blank&&r.name))notes.push(t("plBlank"));
+  if(pl.merged.length)notes.push(t("plMerged",{list:pl.merged.join("・")}));
+  if(blue)notes.push(t("plNote"));else notes.push(t("plWhite"));
+  if(dep.smallOver)notes.push(t("smallOver",{v:yen(dep.smallTotal)}));
+  $("#plNotes").textContent=notes.join(" ");
+  $("#fPL tbody").innerHTML=pl.rows.filter(r=>blue||!/青色申告特別控除/.test(r.name)).map(r=>{
+    const cls=[r.sum?"sum":"",r.blank?"blank":"",!r.v&&!r.sum?"zero":""].join(" ");
+    const nm=r.blank&&!r.name?`<span class="muted">（空欄）</span>`:esc(r.name)+(ACC_TR[r.name]&&lang!=="ja"?` <span class="muted small">${esc(ACC_TR[r.name][lang==="en"?0:1])}</span>`:"");
+    return `<tr class="${cls}"><td class="no">${blue?r.no:""}</td><td class="nm">${nm}</td><td class="r num">${yen(r.v)}</td></tr>`;
+  }).join("");
+  // p.2
+  const mo=Filing.monthly({entries,year,totalOf,bizOf});
+  $("#fMonthly tbody").innerHTML=mo.map(m=>`<tr class="${m.sales||m.purchases?"":"zero"}"><td>${m.m}月</td><td class="r num">${yen(m.sales)}</td><td class="r num">${yen(m.purchases)}</td></tr>`).join("");
+  $("#fMonthly tfoot").innerHTML=`<tr><td>計</td><td class="r num">${yen(mo.reduce((s,m)=>s+m.sales,0))}</td><td class="r num">${yen(mo.reduce((s,m)=>s+m.purchases,0))}</td></tr>`;
+  const rent=Filing.rentDetail({entries,year,totalOf,bizOf});
+  $("#fRent tbody").innerHTML=rent.length?rent.map(r=>`<tr><td>${esc(r.payee)}</td><td class="r num">${yen(r.total)}</td><td class="r num">${yen(r.business)}</td></tr>`).join(""):`<tr><td colspan="3" class="muted">${t("noRent")}</td></tr>`;
+  // p.3
+  $("#fBig").innerHTML=big.length?`<div class="banner warn small" style="margin:0">${t("bigWarn")}<ul style="margin:6px 0 0;padding-left:1.2em">${big.map(e=>`<li>${esc(e.date)} ${esc(e.vendor||e.items||"")} ${accHTML(e.debit)} <span class="num">${yen(totalOf(e))}</span></li>`).join("")}</ul></div>`:"";
+  const M={sl:"定額法",lump3:"一括償却（3年）",small:"少額減価償却資産の特例"};
+  const list=assetsList();
+  $("#fDep tbody").innerHTML=dep.rows.length?dep.rows.map(r=>{const i=list.indexOf(list.find(a=>a.id===r.id));return `<tr>
+    <td>${esc(r.name)}</td><td class="num">${esc(r.date)}</td><td class="r num">${yen(r.cost)}</td><td>${M[r.method]||M.sl}</td>
+    <td class="r num">${r.method==="sl"?esc(r.life)+"年":"—"}</td><td class="r num">${r.method==="sl"?r.rate.toFixed(3):"—"}</td><td class="r num">${r.months}/12</td>
+    <td class="r num">${yen(r.dep)}</td><td class="r num">${r.ratio}%</td><td class="r num">${yen(r.business)}</td><td class="r num">${yen(r.close)}</td>
+    <td style="white-space:nowrap"><button class="btn ghost small" data-aedit="${i}">${t("aEdit")}</button><span data-adelwrap="${i}"><button class="btn ghost small" data-adel="${i}">${t("del")}</button></span></td></tr>`}).join("")
+    :`<tr><td colspan="12" class="muted">${t("noAssets")}</td></tr>`;
+  $("#fDep tfoot").innerHTML=dep.rows.length?`<tr><td colspan="7">計</td><td class="r num">${yen(dep.dep)}</td><td></td><td class="r num">${yen(dep.business)}</td><td class="r num">${yen(dep.close)}</td><td></td></tr>`:"";
+  $("#fDep tbody").querySelectorAll("[data-aedit]").forEach(bt=>bt.onclick=()=>loadAsset(+bt.dataset.aedit));
+  $("#fDep tbody").querySelectorAll("[data-adel]").forEach(bt=>bt.onclick=()=>{
+    const i=+bt.dataset.adel,w=$(`[data-adelwrap="${i}"]`);
+    w.innerHTML=`<button class="btn danger small" data-ayes>${t("del")}</button><button class="btn ghost small" data-ano>${t("cancel")}</button>`;
+    w.querySelector("[data-ano]").onclick=renderFiling;
+    w.querySelector("[data-ayes]").onclick=async()=>{assetsList().splice(i,1);renderFiling();const e=await persistSettings();toast(e?t("saveFail"):t("tDeleted"))};
+  });
+  // p.4
+  $("#bsBox").hidden=!blue;
+  const inp=(side,k,label)=>`<label class="f" for="bs_${side}_${k}"><span>${esc(bsLabel(label))}</span><input type="number" inputmode="numeric" class="num" id="bs_${side}_${k}" data-bs="${side}.${k}" value="${b[side][k]??""}" placeholder="0"></label>`;
+  const active=document.activeElement&&document.activeElement.dataset?document.activeElement.dataset.bs:null;
+  if(!active){
+    $("#bsOpenIn").innerHTML=BS_OPEN.map(([k,l])=>inp("open",k,l)).join("");
+    $("#bsCloseIn").innerHTML=BS_CLOSE.map(([k,l])=>inp("close",k,l)).join("");
+  }
+  const rowsOf=(a,c,head)=>`<tr class="head"><td colspan="3">${head}</td></tr>`+a.map((r,i)=>`<tr class="${r[1]||c[i][1]?"":"zero"}"><td>${esc(r[0])}</td><td class="r num">${yen(r[1])}</td><td class="r num">${yen(c[i][1])}</td></tr>`).join("");
+  $("#fBS tbody").innerHTML=rowsOf(bs.assetsOpen,bs.assetsClose,"資産の部")
+    +`<tr class="sum"><td>合計</td><td class="r num">${yen(bs.totals.assetsOpen)}</td><td class="r num">${yen(bs.totals.assetsClose)}</td></tr>`
+    +rowsOf([...bs.liabOpen,...bs.capOpen],[...bs.liabClose,...bs.capClose],"負債・資本の部")
+    +`<tr class="sum"><td>合計</td><td class="r num">${yen(bs.totals.liabOpen)}</td><td class="r num">${yen(bs.totals.liabClose)}</td></tr>`;
+  const adj=[];
+  if(bs.adj.bank<0)adj.push(t("bsAdjBankLess",{v:yen(-bs.adj.bank)}));
+  if(bs.adj.bank>0)adj.push(t("bsAdjBankMore",{v:yen(bs.adj.bank)}));
+  if(bs.adj.cash<0)adj.push(t("bsAdjCashLess",{v:yen(-bs.adj.cash)}));
+  if(bs.adj.cash>0)adj.push(t("bsAdjCashMore",{v:yen(bs.adj.cash)}));
+  $("#bsAdj").innerHTML=(bs.closeEntered?(bs.diff===0?`<span class="chip ok">${t("bsBalanced")}</span> `:`<span class="chip low">${t("bsDiff",{v:yen(bs.diff)})}</span> `):`<span class="chip no">${t("bsNeedClose")}</span> `)+adj.map(esc).join(" ");
+  // steps
+  $("#fSteps").innerHTML=t("steps").map(x=>`<li>${x}</li>`).join("");
+}
+// balance inputs: live recalculation + auto-save
+$("#bsBox").addEventListener("input",e=>{const k=e.target.dataset.bs;if(!k)return;const [side,f]=k.split(".");const b=yearBS();b[side][f]=e.target.value===""?"":Math.round(+e.target.value);renderFiling();saveSoon()});
+// asset form
+function fillAssetForm(){
+  $("#aPreset").innerHTML=Filing.PRESETS.map(p=>`<option value="${p.key}">${esc(p.ja)}${p.life?` (${p.life}年)`:""}</option>`).join("");
+  $("#aMethod").innerHTML=opts(["sl","lump3","small"],$("#aMethod").value||"sl",k=>({sl:"定額法",lump3:"一括償却資産（3年均等）",small:"少額減価償却資産の特例（青色）"})[k]);
+  $("#aPaid").innerHTML=opts(["事業主借","普通預金","現金","未払金"],$("#aPaid").value||"事業主借",accText);
+  $("#aSave").textContent=t(editingAsset>=0?"saveChanges":"aAdd");
+  $("#aCancel").hidden=editingAsset<0;
+}
+$("#aPreset").addEventListener("change",()=>{const p=Filing.PRESETS.find(x=>x.key===$("#aPreset").value);if(p&&p.life)$("#aLife").value=p.life});
+function loadAsset(i){
+  const a=assetsList()[i];if(!a)return;editingAsset=i;
+  $("#assetBox").open=true;$("#aName").value=a.name;$("#aDate").value=a.date;$("#aCost").value=a.cost;$("#aLife").value=a.life||"";$("#aRatio").value=a.ratio??100;
+  fillAssetForm();$("#aMethod").value=a.method;$("#aPaid").value=a.paidFrom||"事業主借";$("#aPreset").value=a.preset||"other";
+  $("#assetBox").scrollIntoView({behavior:"smooth",block:"center"});
+}
+$("#aCancel").onclick=()=>{editingAsset=-1;["aName","aDate","aCost","aLife"].forEach(id=>$("#"+id).value="");$("#aRatio").value=100;$("#aMsg").textContent="";fillAssetForm()};
+$("#aSave").onclick=async()=>{
+  const msg=$("#aMsg");msg.style.color="var(--shu)";
+  const a={id:editingAsset>=0?assetsList()[editingAsset].id:"a"+Date.now().toString(36),name:$("#aName").value.trim(),date:$("#aDate").value,cost:Math.round(+$("#aCost").value||0),
+    method:$("#aMethod").value,life:Math.round(+$("#aLife").value||0),ratio:Math.min(100,Math.max(0,Math.round(+($("#aRatio").value||100)))),paidFrom:$("#aPaid").value,preset:$("#aPreset").value};
+  a.cat=(Filing.PRESETS.find(p=>p.key===a.preset)||{}).cat||"工具器具備品";
+  if(!a.name||!a.date||!a.cost){msg.textContent=t("aErrReq");return}
+  if(a.cost<100000){msg.textContent=t("aErrCheap");return}
+  if(a.method==="lump3"&&(a.cost<100000||a.cost>=200000)){msg.textContent=t("aErrLump");return}
+  const lim=Filing.smallLimit(a.date);
+  if(a.method==="small"&&(!isBlue()||a.cost>=lim)){msg.textContent=t("aErrSmall",{lim:lim.toLocaleString("ja-JP")});return}
+  if(a.method==="sl"&&(a.life<2||a.life>50)){msg.textContent=t("aErrLife");return}
+  if(editingAsset>=0)assetsList()[editingAsset]=a;else assetsList().push(a);
+  const e=await persistSettings();
+  if(e){msg.textContent=t("saveFail")+": "+e.message;return}
+  msg.style.color="";msg.textContent=t("saved");$("#aCancel").onclick();renderFiling();
+};
+// export
+$("#expFiling").onclick=()=>{
+  const {b,dep,pl,bs}=filingCalc(),blue=isBlue();
+  const rows=[[blue?"青色申告決算書（一般用）":"収支内訳書（一般用）",`${year}年分`,settings.name||""],[],[blue?"1ページ 損益計算書":"収支の計算"],["欄","科目","金額"]];
+  pl.rows.filter(r=>blue||!/青色申告特別控除/.test(r.name)).forEach(r=>rows.push([blue?r.no:"",r.name||"（空欄）",r.v]));
+  rows.push([],["2ページ 月別売上（収入）金額及び仕入金額"],["月","売上（収入）金額","仕入金額"]);
+  Filing.monthly({entries,year,totalOf,bizOf}).forEach(m=>rows.push([m.m+"月",m.sales,m.purchases]));
+  rows.push([],["地代家賃の内訳"],["支払先","本年中の賃借料","必要経費算入額"]);
+  Filing.rentDetail({entries,year,totalOf,bizOf}).forEach(r=>rows.push([r.payee,r.total,r.business]));
+  rows.push([],["3ページ 減価償却費の計算"],["名称","取得年月","取得価額","償却方法","耐用年数","償却率","本年中の償却期間","本年分の償却費","事業専用割合","本年分の必要経費算入額","未償却残高（期末）"]);
+  dep.rows.forEach(r=>rows.push([r.name,r.date,r.cost,{sl:"定額法",lump3:"一括償却",small:"少額特例"}[r.method],r.method==="sl"?r.life:"",r.method==="sl"?r.rate:"",r.months+"/12",r.dep,r.ratio+"%",r.business,r.close]));
+  if(blue){
+    rows.push([],["4ページ 貸借対照表"],["科目","期首","期末"]);
+    const both=(a,c)=>a.forEach((r,i)=>rows.push([r[0],r[1],c[i][1]]));
+    rows.push(["資産の部"]);both(bs.assetsOpen,bs.assetsClose);rows.push(["合計",bs.totals.assetsOpen,bs.totals.assetsClose]);
+    rows.push(["負債・資本の部"]);both([...bs.liabOpen,...bs.capOpen],[...bs.liabClose,...bs.capClose]);rows.push(["合計",bs.totals.liabOpen,bs.totals.liabClose]);
+  }
+  save(`${blue?"青色申告決算書":"収支内訳書"}_${year}.csv`,csv(rows));
+};
+
 // ===== settings =====
 function fillSettings(){
   $("#sName").value=settings.name||"";
@@ -790,13 +1008,13 @@ function fillSettings(){
 $("#saveSettings").onclick=async()=>{
   const s={kind:"settings",name:$("#sName").value.trim(),filing:$("#sFiling").value,ctax:$("#sCtax").value,cash:$("#sCash").value,card:$("#sCard").value,shogaku:$("#sShoGaku").value,hint:$("#sHint").value.trim(),lang};
   Object.assign(settings,s);fillSettings();render();
-  const {error}=await sb.from("settings").upsert({user_id:uid,data:s,updated_at:new Date().toISOString()});
+  const error=await persistSettings();
   $("#setMsg").textContent=error?t("saveFail")+": "+error.message:t("saved");
 };
 
 function render(){
   const a=document.querySelector("nav.tabs [aria-selected=true]")?.dataset.tab;
-  if(a==="journal")renderJournal();if(a==="summary")renderSummary();
+  if(a==="journal")renderJournal();if(a==="summary")renderSummary();if(a==="filing"){fillAssetForm();renderFiling()}
 }
 try{const tb=localStorage.getItem("tab");if(tb)showTab(tb)}catch(e){}
 applyLang();

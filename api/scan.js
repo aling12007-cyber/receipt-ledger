@@ -2,7 +2,7 @@
 // Only signed-in users of this site (optionally limited by ALLOWED_EMAILS) can call it,
 // so strangers cannot spend your Anthropic credits.
 
-const DEFAULT_ACCOUNTS = ["旅費交通費","通信費","消耗品費","会議費","接待交際費","新聞図書費","広告宣伝費","支払手数料","外注工賃","地代家賃","水道光熱費","荷造運賃","研修費","修繕費","損害保険料","租税公課","福利厚生費","給料賃金","利子割引料","減価償却費","雑費"];
+const DEFAULT_ACCOUNTS = ["旅費交通費","通信費","消耗品費","会議費","接待交際費","新聞図書費","広告宣伝費","支払手数料","外注工賃","地代家賃","水道光熱費","荷造運賃","研修費","修繕費","損害保険料","租税公課","福利厚生費","給料賃金","利子割引料","減価償却費","仕入高","雑費"];
 const LANG_NAME = { en: "English", ja: "Japanese", zh: "Traditional Chinese" };
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_B64 = 4_000_000; // ~3 MB image; the page sends ~300 KB JPEGs
