@@ -757,7 +757,7 @@
     return out;
   }
 
-  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount, applyItems, itemsExplain, wantsTableRead };
+  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount, storeAccountOf, guessAccount, applyItems, itemsExplain, wantsTableRead };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);
