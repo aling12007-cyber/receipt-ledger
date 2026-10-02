@@ -78,56 +78,50 @@
     return m ? "T" + m[1] : "";
   }
 
+  // Any 1–3 non-digit characters between year, month and day (年月日 / - . and their OCR look-alikes:
+  // 一 ー ― 午 牛 etc.), plus time/space noise. Candidates near the expected year win.
   function findDate(t, fallbackYear) {
     const pad = (n) => String(n).padStart(2, "0");
     const ok = (y, mo, d) => y >= 2000 && y <= 2100 && mo >= 1 && mo <= 12 && d >= 1 && d <= 31;
-    let m;
-    // 令和8年9月30日 / R8.9.30 / R08/09/30
-    if ((m = t.match(/(?:令和|R)\s*(\d{1,2})\s*[年./]\s*(\d{1,2})\s*[月./]\s*(\d{1,2})/))) {
-      const y = 2018 + +m[1];
-      if (ok(y, +m[2], +m[3])) return `${y}-${pad(m[2])}-${pad(m[3])}`;
+    const fmt = (y, mo, d) => `${y}-${pad(mo)}-${pad(d)}`;
+    const SEP = "[^\\d\\n]{1,3}";
+    const texts = [t, t.replace(/(?<=\d) (?=\d)/g, "")]; // OCR sometimes splits digits: "2 0 2 6"
+    const cands = [];
+    const add = (y, mo, d, prio) => { if (ok(y, mo, d)) cands.push({ y, mo, d, prio }); };
+    for (const x of texts) {
+      let m, re;
+      re = /(?:令和|令|R)\s*(\d{1,2})[^\d\n]{1,3}(\d{1,2})[^\d\n]{1,3}(\d{1,2})/g;          // 令和8年9月20日 / R8.9.20
+      while ((m = re.exec(x))) add(2018 + +m[1], +m[2], +m[3], 0);
+      re = new RegExp(`(?<!\\d)(20\\d{2})\\s*${SEP}\\s*(\\d{1,2})\\s*${SEP}\\s*(\\d{1,2})(?!\\d)`, "g"); // 2026年9月20日 / 2026-9-20 / 2026/9/20 / 2026.09.20
+      while ((m = re.exec(x))) add(+m[1], +m[2], +m[3], 0);
+      re = /(?<!\d)(20\d{2})(\d{2})(\d{2})(?!\d)/g;                                          // 20260920
+      while ((m = re.exec(x))) add(+m[1], +m[2], +m[3], 2);
+      re = /(?:民國|民国)\s*(1\d{2})[^\d\n]{1,3}(\d{1,2})[^\d\n]{1,3}(\d{1,2})/g;             // 民國115年9月20日
+      while ((m = re.exec(x))) add(1911 + +m[1], +m[2], +m[3], 0);
+      re = /(?<!\d)(1\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})(?!\d)/g;            // 115/09/20 (Taiwan)
+      while ((m = re.exec(x))) add(1911 + +m[1], +m[2], +m[3], 3);
+      re = /(?<!\d)(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})(?!\d)/g;                          // 09/20/2026 or 20/09/2026
+      while ((m = re.exec(x))) { add(+m[3], +m[1], +m[2], 1); add(+m[3], +m[2], +m[1], 2); }
+      const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+      re = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})/gi;
+      while ((m = re.exec(x))) add(+m[3], MON[m[1].toLowerCase()], +m[2], 0);
+      re = /\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?,?\s+(20\d{2})/gi;
+      while ((m = re.exec(x))) add(+m[3], MON[m[2].toLowerCase()], +m[1], 0);
+      re = /(?<!\d)(\d{2})\/(\d{1,2})\/(\d{1,2})(?!\d)/g;                                     // 26/09/20
+      while ((m = re.exec(x))) add(2000 + +m[1], +m[2], +m[3], 3);
+      re = /(?<!\d)\d(\d)(\d{2})\s*[^\d\n]{1,2}\s*(\d{1,2})\s*[^\d\n]{1,2}\s*(\d{1,2})(?!\d)/g; // "9026/09/20": first digit misread
+      while ((m = re.exec(x))) if (m[1] === "0") add(2000 + +m[2], +m[3], +m[4], 4);
+      re = /(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*日/g;                                          // 9月20日 (no year)
+      while ((m = re.exec(x))) add(fallbackYear, +m[1], +m[2], 5);
     }
-    // 2026年9月30日 / 2026/09/30 / 2026-09-30 / 2026.9.30
-    if ((m = t.match(/(20\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/))) {
-      if (ok(+m[1], +m[2], +m[3])) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
-    }
-    // OCR misread the first digit of the year ("9026/09/02") → trust the last two digits
-    if ((m = t.match(/(?<!\d)\d(\d)(\d{2})\s*[/.-]\s*(\d{1,2})\s*[/.-]\s*(\d{1,2})(?!\d)/))) {
-      const y = 2000 + +m[2];
-      if (m[1] === "0" && Math.abs(y - fallbackYear) <= 1 && ok(y, +m[3], +m[4])) return `${y}-${pad(m[3])}-${pad(m[4])}`;
-    }
-    // 26/09/30 (two-digit year)
-    if ((m = t.match(/(?<!\d)(\d{2})\/(\d{1,2})\/(\d{1,2})(?!\d)/))) {
-      const y = 2000 + +m[1];
-      if (ok(y, +m[2], +m[3])) return `${y}-${pad(m[2])}-${pad(m[3])}`;
-    }
-    // 民國115年9月30日 / 115/09/30 (Taiwan receipts: ROC year + 1911)
-    if ((m = t.match(/(?:民國|民国)?\s*(1\d{2})\s*[年./-]\s*(\d{1,2})\s*[月./-]\s*(\d{1,2})/))) {
-      const y = 1911 + +m[1];
-      if (ok(y, +m[2], +m[3])) return `${y}-${pad(m[2])}-${pad(m[3])}`;
-    }
-    // 09/30/2026 (US order)
-    if ((m = t.match(/(?<!\d)(\d{1,2})[\/.-](\d{1,2})[\/.-](20\d{2})(?!\d)/))) {
-      const a = +m[1], b = +m[2], y = +m[3];
-      if (ok(y, a, b)) return `${y}-${pad(a)}-${pad(b)}`;
-      if (ok(y, b, a)) return `${y}-${pad(b)}-${pad(a)}`;
-    }
-    // Sep 30, 2026 / 30 Sep 2026
-    const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-    if ((m = t.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})/i))) {
-      const mo = MON[m[1].toLowerCase()];
-      if (ok(+m[3], mo, +m[2])) return `${m[3]}-${pad(mo)}-${pad(m[2])}`;
-    }
-    if ((m = t.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?,?\s+(20\d{2})/i))) {
-      const mo = MON[m[2].toLowerCase()];
-      if (ok(+m[3], mo, +m[1])) return `${m[3]}-${pad(mo)}-${pad(m[1])}`;
-    }
-    // 9月30日 (no year)
-    if ((m = t.match(/(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*日/))) {
-      if (ok(fallbackYear, +m[1], +m[2])) return `${fallbackYear}-${pad(m[1])}-${pad(m[2])}`;
-    }
-    return "";
+    if (!cands.length) return "";
+    // prefer plausible years (around the tax year), then the most explicit pattern, then the first one printed
+    const near = (c) => Math.abs(c.y - fallbackYear) <= 1;
+    cands.sort((a, b) => (near(b) - near(a)) || (a.prio - b.prio));
+    const c = cands[0];
+    return fmt(c.y, c.mo, c.d);
   }
+
 
   const TOTAL_WORDS = /(合\s*計|総\s*計|總\s*計|总\s*计|合\s*计|總\s*額|总\s*额|お?買\s*上|ご?請求|領収金額|お支払|支払金額|税込計|應\s*付|应\s*付|實\s*付|实\s*付|AMOUNT\s*DUE|BALANCE\s*DUE|GRAND\s*TOTAL|TOTAL)/i;
   const EXCLUDE_WORDS = /(お預|預り|お釣|釣銭|おつり|ポイント|点数|内税|消費税|税額|対象|小計|小计|找零|找續|稅額|税额|SUB\s*TOTAL|CHANGE|TENDERED|\bTAX\b|\bVAT\b|\bGST\b)/i;
@@ -151,13 +145,17 @@
 
   // Yen total by evidence: the real total is usually printed several times (合計, 対象額, お預り,
   // card line) and equals 小計 + 税 (外税) — robust when OCR garbles the 合計 label itself.
+  const NOISE_LINE = /(TEL|電話|FAX|レジ|No[.:]|登録|番号|担当|伝票|責|取引|会員|ポイント|〒)/i;
+  const moneyText = (l) => l.replace(/\d+(?:\.\d+)?\s*[%％]/g, " ").replace(/\d{1,2}:\d{2}(?::\d{2})?/g, " ");
   function findYenTotal(lines) {
     const info = new Map();
     const add = (v, key) => { if (v < 10 || v >= 10000000) return; const o = info.get(v) || { n: 0, total: 0, excl: 0 }; o.n++; o[key]++; info.set(v, o); };
     for (const l of lines) {
       const isTotal = TOTAL_WORDS.test(l) && !EXCLUDE_WORDS.test(l);
+      // dates, times, addresses, phone and register numbers are not money
+      if (!isTotal && (DATE_LINE.test(l) || ADDRESS.test(l) || NOISE_LINE.test(l))) continue;
       const isExcl = /(お預|預り|お釣|釣銭|おつり|ポイント|点数|找零)/.test(l);
-      for (const v of amountsIn(l)) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
+      for (const v of amountsIn(moneyText(l))) add(v, isTotal ? "total" : isExcl ? "excl" : "n0");
     }
     if (!info.size) return 0;
     const vals = [...info.keys()];
@@ -296,7 +294,7 @@
   // Item lines between the header and the 小計/合計 block: "Chicken MOMO ×1", "おにぎり ×2" …
   const ITEM_STOP = /(小\s*計|小计|合\s*計|合计|総\s*計|總\s*計|お?買\s*上|お会計|ご?請求|SUB\s*TOTAL|TOTAL|お預|お釣|対象|消費税|内税|外税)/i;
   const ITEM_SKIP = /(領\s*収|レシート|RECEIPT|TEL|電話|〒|登録番号|レジ|担当|取引|No[.:]|伝票|ご利用|ありがとう|お待ち|またの|お越し|営業時間|店|様|^\s*\d+\s*[/.-]\s*\d+|品目|数量|金額|単価|発行日|お支払|支払方法|カード|現金)/i;
-  const DATE_LINE = /((20\d{2}|令和\s*\d{1,2}|R\s*\d{1,2})\s*[年./-]\s*\d{1,2}|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2})/i;
+  const DATE_LINE = /((?<!\d)(20\d{2}|令和\s*\d{1,2}|R\s*\d{1,2})\s*[^\d\n]{1,3}\s*\d{1,2}\s*[^\d\n]{1,3}\s*\d{1,2}|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2})/i;
   function cleanName(l) {
     let n = l.replace(/[¥\\￥$]\s*[\d,.\s]*\d|\d[\d,]*\s*円|\d+\.\d{1,2}|[×xX＊*]\s*\d+|\d+\s*(?:点|個|コ|本|枚|杯|人前|名)|[※★◆●○■□()（）\[\]{}|<>~=_]/g, " ")
       .replace(/(^|\s)\d{1,4}(?=\s|$)/g, " ").replace(/\s+/g, " ").trim();
@@ -309,37 +307,54 @@
     if (compact.length < 2 || compact.length > 30) return false;
     const cjk = (compact.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length;
     const latin = (compact.match(/[A-Za-z]/g) || []).length;
-    if ((cjk + latin) / compact.length < 0.7) return false;
+    if ((cjk + latin) / compact.length < (cjk >= 2 ? 0.5 : 0.7)) return false;
     if (cjk < 2 && cjk + latin < 3) return false; // "j 点", "AE"…
     if (!cjk && !/[A-Za-z]{3,}/.test(n)) return false; // Latin needs a real word
     return true;
   }
-  // Item lines after the date, up to the 小計/合計 block: "Chicken MOMO×1", "生ビール×2" …
+  // A price on a line: ¥/円/$ amounts, comma numbers, or a trailing number (not %, not times).
+  function priceOf(l) {
+    const x = moneyText(l);
+    const vals = [];
+    let m; const re = /(?:[¥\\￥$]\s*(\d{1,3}(?:[,.]\s?\d{3})+|\d+)(?:\.\d{1,2})?)|(?:(\d{1,3}(?:,\d{3})+|\d+)\s*円)|(?:(?<![\d.])(\d{1,3}(?:,\d{3})+)(?![\d]))/g;
+    while ((m = re.exec(x))) { const v = toInt(m[1] || m[2] || m[3]); if (v >= 10) vals.push(v); }
+    if (!vals.length) { const e = x.match(/\s(\d{2,7})(?:\.\d{1,2})?\s*$/); if (e && +e[1] >= 10) vals.push(+e[1]); }
+    return vals.length ? Math.max(...vals) : 0;
+  }
+  function qtyOf(l) {
+    const all = [];
+    let m; const re = /[×xX＊*]\s*(\d{1,3})(?!\d)|(\d{1,3})\s*(点|個|コ|本|杯|人前|名|枚|袋|箱)/g;
+    while ((m = re.exec(l))) { const v = +(m[1] || m[2]); if (v >= 1 && v <= 99 && !(m[3] === "枚" && v > 20)) all.push(v); }
+    if (all.length) return all[all.length - 1];
+    const s2 = l.match(/\s(\d{1,2})\s*[=:・\-－_.,]?\s+[¥\\￥]?\s*\d[\d,]*\s*円?\s*$/); // "ブレンドコーヒー 2 ¥1,240" (OCR may add "=")
+    return s2 ? +s2[1] : null;
+  }
+  // Items = lines after the date with a name AND a price (same line, or a price-only line just below),
+  // up to the 小計/合計 block. Lines without a price (greetings, addresses, register info) are ignored.
   function extractItems(lines, vendor, total) {
     const di = lines.findIndex((l) => DATE_LINE.test(l));
     const out = [];
-    let sum = 0, priced = 0, last = null;
+    let sum = 0;
+    const nameOf = (l) => { const n = cleanName(l); return plausibleName(n) && !ITEM_SKIP.test(n) && n !== vendor && !ADDRESS.test(l) && !NOISE_LINE.test(l) ? n : ""; };
     for (let i = di >= 0 ? di + 1 : 1; i < lines.length && out.length < 15; i++) {
       const l = lines[i].trim();
       if (ITEM_STOP.test(l)) { if (out.length) break; continue; }
-      const amts = amountsIn(l);
+      const price = priceOf(l), name = nameOf(l);
       // reached the subtotal / total even if its label was garbled by OCR
-      if (out.length && amts.length && ((total && amts.includes(total) && priced >= 1 && out.length > 1) || (priced >= 2 && amts.some((a) => Math.abs(a - sum) <= Math.max(1, sum * 0.1))))) break;
-      if (ADDRESS.test(l) || /\d{2,4}-\d{2,4}-\d{3,4}|\d{8,}/.test(l)) continue;
-      let qty = (l.match(/(?:[×xX＊*]\s*(\d{1,3})|(\d{1,3})\s*(?:点|個|コ|本|枚|杯|人前|名))/) || []).slice(1).find(Boolean);
-      if (!qty) { const m = l.match(/\s(\d{1,2})\s+[¥\\￥]?\s*\d[\d,]*\s*$/) || l.match(/\s(\d{1,2})\s*$/); if (m) qty = m[1]; }
-      const name = cleanName(l);
-      if (plausibleName(name) && !ITEM_SKIP.test(name) && name !== vendor) {
-        last = { name, qty: qty ? +qty : null };
-        out.push(last);
-        if (amts.length) { sum += Math.max(...amts); priced++; last.priced = true; }
-      } else if (last && amts.length && !last.priced) {
-        if (qty && !last.qty) last.qty = +qty; // quantity / price printed on the line below the name
-        sum += Math.max(...amts); priced++; last.priced = true;
+      if (out.length >= 2 && price && ((total && price === total) || Math.abs(price - sum) <= Math.max(1, sum * 0.1))) break;
+      if (!name) continue;
+      let qty = qtyOf(l), p = price;
+      if (!p && i + 1 < lines.length) {
+        const nx = lines[i + 1].trim();
+        if (!nameOf(nx) && !ITEM_STOP.test(nx)) { p = priceOf(nx); if (p) { qty = qty || qtyOf(nx); i++; } }
       }
+      if (!p) continue; // no price → not a purchased item
+      out.push(name + (qty ? "×" + qty : ""));
+      sum += p;
     }
-    return out.map((it) => it.name + (it.qty ? "×" + it.qty : ""));
+    return out;
   }
+
 
   function parseReceiptText(raw, opts) {
     const year = (opts && opts.year) || new Date().getFullYear();
