@@ -39,3 +39,15 @@ select public.import_journal('{"entries":[
   {"legacy_ids":["bad"],"date":"2026-01-02","lines":[{"account":"消耗品費","dr":100},{"account":"現金","cr":90}]}]}'::jsonb);
 select case when count(*) = 0 then 'PASS  nothing was written' else 'FAIL  partial import' end from journal_entries;
 SQL
+echo "--- reversal entries through import_journal"
+psql -q -d $DB <<'SQL' 2>&1 | sed 's/^ *//' | grep -E 'PASS|FAIL|ERROR' | sed 's/^ERROR: */refused: /'
+\pset tuples_only on
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+select case when public.accounting_core_version() >= 2 then 'PASS  version 2' else 'FAIL  version' end;
+select public.import_journal('{"entries":[{"id":"bbbbbbbb-0000-0000-0000-000000000001","legacy_ids":["r1"],"date":"2026-03-01","lines":[{"account":"消耗品費","dr":1100,"tax_code":"P10","tax_amount":100},{"account":"現金","cr":1100}]}]}'::jsonb) is not null;
+select public.import_journal('{"entries":[{"legacy_ids":["rev:1"],"date":"2026-03-01","kind":"reversal","reverses":"bbbbbbbb-0000-0000-0000-000000000001","lines":[{"account":"消耗品費","cr":1100,"tax_code":"P10","tax_amount":100},{"account":"現金","dr":1100}]}]}'::jsonb) is not null;
+select case when count(*) = 1 then 'PASS  reversal posted and linked' else 'FAIL  reversal' end from journal_entries where kind = 'reversal' and reverses = 'bbbbbbbb-0000-0000-0000-000000000001' and status = 'posted';
+select case when coalesce(sum(dr - cr), 0) = 0 then 'PASS  reversal cancels the entry' else 'FAIL  balance' end from journal_lines;
+select public.import_journal('{"entries":[{"legacy_ids":["rev:again"],"date":"2026-03-01","kind":"reversal","reverses":"bbbbbbbb-0000-0000-0000-000000000001","lines":[{"account":"消耗品費","cr":1100},{"account":"現金","dr":1100}]}]}'::jsonb);
+SQL

@@ -350,10 +350,14 @@ create policy "read own audit" on public.audit_log for select using (user_id = a
 grant select on public.audit_log to authenticated;
 revoke insert, update, delete on public.audit_log from authenticated, anon;
 
+-- ---------- version (the app checks it and asks to re-run this file when it is older than expected) ----------
+create or replace function public.accounting_core_version() returns integer language sql immutable as $$ select 2 $$;
+grant execute on function public.accounting_core_version() to authenticated;
+
 -- ---------- import (used by the data upgrade now, and later by CSV import and backup restore) ----------
 -- One call = one database transaction: everything is written, or nothing is. Runs with the caller's rights (RLS applies).
 -- payload: { documents: [{storage_path, mime_type, source}],
---            entries: [{id, legacy_ids[], date, kind, source, vendor, invoice_no, invoice_status, memo, rule_version,
+--            entries: [{id, legacy_ids[], date, kind, source, vendor, invoice_no, invoice_status, memo, rule_version, reverses,
 --                       transaction: {id, document_path, date, vendor, total, payment, status, source} | null,
 --                       lines: [{account, dr, cr, tax_code, tax_amount, memo}]}],
 --            fixed_assets: [...], fiscal_years: [...] }
@@ -388,10 +392,10 @@ begin
               coalesce(t->>'status', 'confirmed'), coalesce(t->>'source', 'import'));
     end if;
     jid := coalesce((e->>'id')::uuid, gen_random_uuid());
-    insert into journal_entries (id, transaction_id, date, kind, source, vendor, invoice_no, invoice_status, memo, rule_version)
+    insert into journal_entries (id, transaction_id, date, kind, source, vendor, invoice_no, invoice_status, memo, rule_version, reverses)
     values (jid, tid, (e->>'date')::date, coalesce(e->>'kind', 'normal'), coalesce(e->>'source', 'import'),
             coalesce(e->>'vendor', ''), coalesce(e->>'invoice_no', ''), e->>'invoice_status', coalesce(e->>'memo', ''),
-            coalesce(e->>'rule_version', '2026.1'));
+            coalesce(e->>'rule_version', '2026.1'), (e->>'reverses')::uuid);
     i := 0;
     for l in select value from jsonb_array_elements(e->'lines') loop
       i := i + 1;
