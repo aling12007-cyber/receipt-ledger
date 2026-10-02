@@ -242,7 +242,8 @@
   // The issuing business (事業者名 / 株式会社… / (株)), which is what the books should record.
   const COMPANY_NAME = /((?:株式会社|有限会社|合同会社|合資会社|一般社団法人|一般財団法人)\s*[^\s　,、。:：|()（）\d]{1,24}|[^\s　,、。:：|()（）\d]{1,24}\s*(?:株式会社|有限会社|合同会社)|[^\s　,、。:：|()（）\d]{1,24}\s*[（(]\s*[株有]\s*[)）]|[A-Za-z][A-Za-z&.' -]{1,40}(?:Co\.,?\s*Ltd\.?|Inc\.?|Corporation|K\.K\.))/i;
   function findCompany(lines) {
-    const tidy = (x) => x.replace(/\s+/g, " ").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, "").trim();
+    // "東京リスマチック (株 )" → "東京リスマチック（株）"
+    const tidy = (x) => x.replace(/\s+/g, " ").replace(/\s*[（(]\s*([株有])\s*[)）]\s*/g, "（$1）").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, "").trim();
     // 1) labelled: 事業者名：株式会社ダイナック
     for (const l of lines) {
       const m = l.match(/(?:事業者名|事業者|発行者|発行元|会社名|運営会社|販売元|販売者|社名)(?!印)\s*(?:[:：]|\s)\s*(.+)$/);
