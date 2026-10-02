@@ -38,6 +38,7 @@
         entries: [{
           id, legacy_ids: ["app:" + (o.key || id)], date: entry.date, kind: entry.kind, source: o.source || "manual", vendor: entry.vendor || "",
           invoice_no: entry.invoice_no || "", invoice_status: entry.invoice_status ?? null, memo: entry.memo || "", rule_version: entry.rule_version,
+          reverses: entry.reverses ?? null,
           transaction: o.transaction || (o.documentPath ? { document_path: o.documentPath, date: entry.date, vendor: entry.vendor || "", status: "confirmed", source: o.source || "manual" } : null),
           lines: entry.lines,
         }],

@@ -20,7 +20,7 @@
    *   payment?: string, account?: string, taxCode?: string, taxRate?: number, bizRatio?: number, invoiceNo?: string,
    *   from?: string, to?: string, fee?: number, blue?: boolean }} QuickEntry
    */
-  /** @typedef {{ field: string, value: any, confidence: number, reason: string }} Suggestion */
+  /** @typedef {{ field: string, value: any, confidence: number, reason: string, code: string }} Suggestion */
 
   const TAX_CODES = ["-", "P10", "P8", "PN", "PX", "S10", "S8", "SN", "SE", "SX"];
   const isInvoice = (s) => /^T\d{13}$/.test(String(s || ""));
@@ -34,6 +34,7 @@
   const EQUIPMENT = /(パソコン|PC|ノートパソコン|MacBook|iMac|iPad|タブレット|モニター|ディスプレイ|プリンター|複合機|カメラ|レンズ|サーバー|NAS|机|デスク|椅子|チェア|エアコン|冷蔵庫|スマートフォン|スマホ|iPhone)/i;
   const SOFTWARE = /(ソフトウェア|ライセンス|Adobe|Microsoft 365|Office|サブスク|月額|年額)/i;
   const RESIDENTIAL = /(自宅|住宅|マンション|アパート|居住)/;
+  const NONTAX_PN = new Set(["地代家賃", "損害保険料", "通信費", "利子割引料"]); // 非課税 when no consumption tax (住宅家賃・保険・切手・利息)
 
   /**
    * Account and tax suggestions for an expense, each with a confidence and the reason (shown to the user).
@@ -47,29 +48,35 @@
     /** @type {Suggestion} */
     let account;
     const learned = hints.learned && hints.learned(q.vendor || "");
-    if (q.account) account = { field: "account", value: q.account, confidence: 1, reason: "入力" };
-    else if (learned) account = { field: "account", value: learned, confidence: 0.9, reason: "過去の修正（同じ取引先）" };
-    else if (EQUIPMENT.test(text)) account = { field: "account", value: "消耗品費", confidence: 0.7, reason: "備品・機器" };
-    else if (SOFTWARE.test(text)) account = { field: "account", value: "通信費", confidence: 0.6, reason: "ソフトウェア利用料" };
-    else if (hints.guess) { const g = hints.guess(q.vendor || "", text); account = { field: "account", value: g.account, confidence: g.account === "消耗品費" ? 0.4 : 0.7, reason: "取引先・内容のルール" }; }
-    else account = { field: "account", value: "消耗品費", confidence: 0.3, reason: "既定" };
+    const S = (value, confidence, code, reason) => ({ field: "account", value, confidence, code, reason });
+    if (q.account) account = S(q.account, 1, "input", "入力");
+    else if (learned) account = S(learned, 0.9, "learned", "過去の修正（同じ取引先）");
+    else if (EQUIPMENT.test(text)) account = S("消耗品費", 0.7, "equipment", "備品・機器");
+    else if (SOFTWARE.test(text)) account = S("通信費", 0.6, "software", "ソフトウェア利用料");
+    else if (hints.guess) { const g = hints.guess(q.vendor || "", text); account = S(g.account, g.account === "消耗品費" ? 0.4 : 0.7, "rules", "取引先・内容のルール"); }
+    else account = S("消耗品費", 0.3, "default", "既定");
 
-    // 10万円以上の備品は固定資産の候補
+    // 10万円以上の備品は固定資産の候補 (an account the user chose is kept; they only get a warning)
     const cls = TaxRules.assetClass(q.amount, q.date, q.blue !== false);
     if (account.value === "消耗品費" && cls !== "expense" && (EQUIPMENT.test(text) || q.amount >= TaxRules.rulesFor(q.date).expenseBelow)) {
-      account = { field: "account", value: "工具器具備品", confidence: 0.6, reason: "10万円以上の備品" };
-      notes.push(cls === "small" ? "fixedAssetSmall" : cls === "lump" ? "fixedAssetLump" : "fixedAsset");
+      if (q.account) notes.push("bigSupply");
+      else {
+        account = S("工具器具備品", 0.6, "assetCandidate", "10万円以上の備品");
+        notes.push(cls === "small" ? "fixedAssetSmall" : cls === "lump" ? "fixedAssetLump" : "fixedAsset");
+      }
     }
 
     const acc = Accounts.get(account.value);
     /** @type {Suggestion} */
     let taxCode;
-    if (q.taxCode) taxCode = { field: "taxCode", value: q.taxCode, confidence: 1, reason: "入力" };
-    else if (q.taxRate === 8) taxCode = { field: "taxCode", value: "P8", confidence: 1, reason: "軽減税率 8%" };
-    else if (q.taxRate === 0) taxCode = { field: "taxCode", value: "PX", confidence: 0.8, reason: "税なし" };
+    const T = (value, confidence, code, reason) => ({ field: "taxCode", value, confidence, code, reason });
+    if (q.taxCode) taxCode = T(q.taxCode, 1, "input", "入力");
+    else if (q.taxRate === 10) taxCode = T("P10", 1, "input", "入力");
+    else if (q.taxRate === 8) taxCode = T("P8", 1, "reduced", "軽減税率 8%");
+    else if (q.taxRate === 0) taxCode = T(NONTAX_PN.has(account.value) ? "PN" : "PX", 0.8, "noTax", "税なし");
     else if (account.value === "地代家賃" && (RESIDENTIAL.test(text) || (q.bizRatio != null && q.bizRatio < 100)))
-      taxCode = { field: "taxCode", value: "PN", confidence: 0.7, reason: "住宅の家賃は非課税" };
-    else taxCode = { field: "taxCode", value: acc ? acc.defaultTax : "P10", confidence: acc && acc.defaultTax !== "P10" ? 0.8 : 0.7, reason: "科目の既定の税区分" };
+      taxCode = T("PN", 0.7, "residential", "住宅の家賃は非課税");
+    else taxCode = T(acc ? acc.defaultTax : "P10", acc && acc.defaultTax !== "P10" ? 0.8 : 0.7, "accountDefault", "科目の既定の税区分");
 
     if (Accounts.MIXED_USE.has(account.value) && (q.bizRatio == null || q.bizRatio === 100)) notes.push("allocation");
     if (!isInvoice(q.invoiceNo) && (taxCode.value === "P10" || taxCode.value === "P8")) notes.push("noInvoice");

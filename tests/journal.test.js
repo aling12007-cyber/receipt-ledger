@@ -110,3 +110,10 @@ test("tax rules are versioned and sourced", () => {
   assert.deepEqual([150000, 250000].map((a) => TaxRules.assetClass(a, "2026-10-01", false)), ["lump", "depreciate"]);
   for (const v of TaxRules.VERSIONS) assert.ok(v.sources.length && v.sources.every((s) => /^https:\/\/www\.nta\.go\.jp\//.test(s.url)), v.id);
 });
+
+test("an account the user chose is kept; a large amount only adds a warning", () => {
+  const r = Journal.fromQuickEntry({ date: "2026-10-05", amount: 150000, description: "パソコン", account: "消耗品費", payment: "card" });
+  assert.equal(r.suggestions[0].value, "消耗品費");
+  assert.ok(r.notes.includes("bigSupply"));
+  assert.ok(r.suggestions.every((x) => typeof x.code === "string"));
+});

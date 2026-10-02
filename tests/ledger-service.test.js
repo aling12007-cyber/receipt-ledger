@@ -62,4 +62,5 @@ test("correction = reversal + corrected entry; the original stays", async () => 
   const all = await svc.list(2026);
   assert.deepEqual(all.map((e) => e.kind), ["compound", "reversal", "compound"]); // 家事按分 adds a 事業主貸 line
   assert.deepEqual(Journal.balances(all), Journal.balances([fixed]));
+  assert.equal(all[1].reverses, posted.id, "the reversal names the entry it cancels (the database requires it)");
 });
