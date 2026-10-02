@@ -102,15 +102,25 @@
     return new Promise((res, rej) => {
       tokenClient = root.google.accounts.oauth2.initTokenClient({
         client_id: clientId, scope: SCOPE,
-        callback: (r) => { if (r.error) return rej(new Error(r.error_description || r.error)); token = r.access_token; tokenExp = Date.now() + (r.expires_in || 3600) * 1000; res(token); },
-        error_callback: (e) => rej(new Error(e && (e.message || e.type) || "Google sign-in was cancelled")),
+        callback: (r) => {
+          if (r.error) return rej(Object.assign(new Error(r.error_description || r.error), { code: r.error }));
+          // Google's consent screen lets people untick the Drive permission; without it nothing can be opened.
+          if (root.google.accounts.oauth2.hasGrantedAllScopes && !root.google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE))
+            return rej(Object.assign(new Error("Drive permission was not ticked"), { code: "scope" }));
+          token = r.access_token; tokenExp = Date.now() + (r.expires_in || 3600) * 1000; res(token);
+        },
+        error_callback: (e) => rej(Object.assign(new Error(e && (e.message || e.type) || "Google sign-in was cancelled"), { code: e && e.type || "popup" })),
       });
       tokenClient.requestAccessToken({ prompt: token ? "" : "consent" });
     });
   }
   function pick(cfg, accessToken, locale) {
     const P = root.google.picker;
-    return new Promise((res) => {
+    return new Promise((res, rej) => {
+      let opened = false;
+      // If Google never reports the picker as loaded, say so instead of silently doing nothing.
+      const guard = setTimeout(() => { if (!opened) rej(Object.assign(new Error("Google Drive picker did not open"), { code: "picker" })); }, 20000);
+      try {
       const docs = new P.DocsView(P.ViewId.DOCS).setMimeTypes(MIME).setIncludeFolders(true).setSelectFolderEnabled(false).setMode(P.DocsViewMode.LIST);
       const picker = new P.PickerBuilder()
         .addView(docs)
@@ -118,11 +128,16 @@
         .setOAuthToken(accessToken).setDeveloperKey(cfg.googleApiKey).setAppId(cfg.googleAppId)
         .setLocale(locale || "ja").setMaxItems(50)
         .setCallback((d) => {
-          if (d[P.Response.ACTION] === P.Action.PICKED) res(d[P.Response.DOCUMENTS] || []);
-          else if (d[P.Response.ACTION] === P.Action.CANCEL) res([]);
+          const a = d[P.Response.ACTION];
+          if (a === "loaded" || a === P.Action.LOADED) { opened = true; return; }
+          clearTimeout(guard); opened = true;
+          if (a === P.Action.PICKED) res(d[P.Response.DOCUMENTS] || []);
+          else if (a === P.Action.CANCEL) res([]);
+          else if (a === "error" || a === P.Action.ERROR) rej(Object.assign(new Error("Google Drive picker error"), { code: "picker" }));
         })
         .build();
       picker.setVisible(true);
+      } catch (e) { clearTimeout(guard); rej(Object.assign(e, { code: "picker" })); }
     });
   }
   async function download(doc, accessToken) {
