@@ -81,7 +81,7 @@
 
 ```
 index.html            網站本體（介面、記帳邏輯、三語翻譯）
-ocr.js                免費模式：裝置上的日文 OCR 與收據解析規則
+ocr.js                免費模式：裝置上的 OCR（自動判斷日文／英文／中文）與收據解析規則
 api/scan.js           伺服器：驗證登入後，把收據照片送給 Claude 讀取
 api/config.js         伺服器：提供瀏覽器公開的 Supabase 設定
 supabase/schema.sql   資料表、修改紀錄、權限、照片空間
@@ -93,6 +93,7 @@ vercel.json           伺服器設定（AI 辨識最長 60 秒）
 ## 常見問題
 
 - **免費模式讀錯金額**：收據盡量拍平、光線充足、只拍收據本身。辨識後可直接在表單修改，按「確認入帳」前都不會記帳。
+- **海外收據（美元、台幣等）**：會自動判斷語言和幣別。外幣金額會放在備註，請換算成日圓後填入「不課税・非課税」欄（國外交易不適用日本消費稅）。
 - **想從免費模式升級**：在 Vercel 加上 `ANTHROPIC_API_KEY`，到 **Deployments** 按 **Redeploy** 即可，帳冊資料不受影響。
 - **畫面顯示「網站尚未設定完成」**：Vercel 的 `SUPABASE_URL`／`SUPABASE_ANON_KEY` 沒設定或拼錯。修改後到 Vercel 的 **Deployments** 按 **Redeploy**。
 - **AI 辨識顯示「這個帳號不能使用 AI 辨識」**：把你的 email 加進 `ALLOWED_EMAILS`，再 Redeploy。
