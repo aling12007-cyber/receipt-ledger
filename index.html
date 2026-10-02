@@ -577,7 +577,6 @@ function splitHTML(d,p){
 function formHTML(d,p,o){
   if(isSplit(d)&&d.type!=="income") return formSplitHTML(d,p);
   const inc=d.type==="income";const id=k=>p+"_"+k;
-  const fld=(k,lab,inner)=>`<label class="f ${k}" for="${id(lab)}"><span>${t(lab)}</span>${inner}</label>`;
   const num=k=>`<input type="number" inputmode="numeric" class="num" id="${id(k)}" data-k="${k}" value="${d[k]||""}">`;
   return `<div class="grid">
     <label class="f" for="${id("date")}">${t("date")}<input type="date" id="${id("date")}" data-k="date" value="${esc(d.date)}"></label>
@@ -1158,7 +1157,7 @@ $("#aSave").onclick=async()=>{
 };
 // export
 $("#expFiling").onclick=()=>{
-  const {b,dep,pl,bs}=filingCalc(),blue=isBlue();
+  const {dep,pl,bs}=filingCalc(),blue=isBlue();
   const rows=[[blue?"青色申告決算書（一般用）":"収支内訳書（一般用）",`${year}年分`,settings.name||""],[],[blue?"1ページ 損益計算書":"収支の計算"],["欄","科目","金額"]];
   pl.rows.filter(r=>blue||!/青色申告特別控除/.test(r.name)).forEach(r=>rows.push([blue?r.no:"",r.name||"（空欄）",r.v]));
   rows.push([],["2ページ 月別売上（収入）金額及び仕入金額"],["月","売上（収入）金額","仕入金額"]);

@@ -127,7 +127,7 @@
     if (!cands.length) return "";
     // prefer plausible years (around the tax year), then the most explicit pattern, then the first one printed
     const near = (c) => Math.abs(c.y - fallbackYear) <= 1;
-    cands.sort((a, b) => (near(b) - near(a)) || (a.prio - b.prio));
+    cands.sort((a, b) => (Number(near(b)) - Number(near(a))) || (a.prio - b.prio));
     const c = cands[0];
     return fmt(c.y, c.mo, c.d);
   }
@@ -295,6 +295,7 @@
 
 
   const GOLF = /(カントリー\s*クラブ|カントリー倶楽部|カンツリー|ゴルフ|GOLF|ＰＧＭ|PGM\b|アコーディア|ACCORDIA|ゴルフ場利用税|プレー代)/i;
+  /** @type {Array<[RegExp, string]>} */
   const ACCOUNT_RULES = [
     [GOLF, "接待交際費"],
     [/(タクシー|交通|JR|鉄道|駅|乗車|SUICA|PASMO|ICOCA|バス|新幹線|航空|高速|駐車|パーキング|ガソリン|ENEOS|出光|コスモ石油)/i, "旅費交通費"],
@@ -452,6 +453,7 @@
 
   // ---------- one receipt, several accounts ----------
   // What a single item is, regardless of the shop. null = nothing specific (follows the receipt's account).
+  /** @type {Array<[RegExp, string]>} */
   const ITEM_ACCOUNT_RULES = [
     [/(収入印紙|印紙|利用税|入湯税)/, "租税公課"],
     [/([プブフ]レー代|プレイ代|プレーフィ|グリーンフィ|ラウンド|練習場|練習ボール|キャディ|ゴルフ|GOLF|レンタルクラブ)/i, "接待交際費"],

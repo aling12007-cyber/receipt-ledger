@@ -160,7 +160,7 @@
     const blob = await r.blob();
     const name = doc.name || doc[root.google.picker.Document.NAME] || id;
     const type = doc.mimeType || blob.type || "";
-    const f = new File([blob], name, { type });
+    const f = /** @type {File & { driveId?: string }} */ (new File([blob], name, { type }));
     f.driveId = id;
     return f;
   }
