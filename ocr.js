@@ -415,6 +415,11 @@
   // Items = lines after the date with a name AND a price (same line, or a price-only line just below),
   // up to the 小計/合計 block. Lines without a price (greetings, addresses, register info) are ignored.
   function extractItems(lines, vendor, total) {
+    return extractItemDetails(lines, vendor, total).map((it) => it.label);
+  }
+  // Same as extractItems, with price and reduced-rate mark (※ / 軽 / 8%) per item: [{ name, label, qty, price, reduced }]
+  const REDUCED_MARK = /(※|軽(?!食)|^\s*[*＊]|(?<![\d.])8\s*[%％])/;
+  function extractItemDetails(lines, vendor, total) {
     const di = lines.findIndex((l) => DATE_LINE.test(l));
     const out = [];
     let sum = 0;
@@ -426,16 +431,85 @@
       // reached the subtotal / total even if its label was garbled by OCR
       if (out.length >= 2 && price && ((total && price === total) || Math.abs(price - sum) <= Math.max(1, sum * 0.1))) break;
       if (!name) continue;
-      let qty = qtyOf(l), p = price;
+      let qty = qtyOf(l), p = price, reduced = REDUCED_MARK.test(l);
       if (!p && i + 1 < lines.length) {
         const nx = lines[i + 1].trim();
-        if (!nameOf(nx) && !ITEM_STOP.test(nx)) { p = priceOf(nx); if (p) { qty = qty || qtyOf(nx); i++; } }
+        if (!nameOf(nx) && !ITEM_STOP.test(nx)) { p = priceOf(nx); if (p) { qty = qty || qtyOf(nx); reduced = reduced || REDUCED_MARK.test(nx); i++; } }
       }
       if (!p) continue; // no price → not a purchased item
-      out.push(name + (qty ? "×" + qty : ""));
+      out.push({ name, label: name + (qty ? "×" + qty : ""), qty: qty || 1, price: p, reduced });
       sum += p;
     }
     return out;
+  }
+
+  // ---------- one receipt, several accounts ----------
+  // What a single item is, regardless of the shop. null = nothing specific (follows the receipt's account).
+  const ITEM_ACCOUNT_RULES = [
+    [/(収入印紙|印紙)/, "租税公課"],
+    [/(切手|はがき|ハガキ|葉書|レターパック|郵便|速達|書留|STAMP|POSTAGE)/i, "通信費"],
+    [/(宅急便|宅配便|ゆうパック|ゆうパケット|送料|配送料|クリックポスト|SHIPPING)/i, "荷造運賃"],
+    [/(手数料|FEE\b)/i, "支払手数料"],
+    [/(書籍|雑誌|新聞|文庫|単行本|コミック|週刊|月刊|BOOK|MAGAZINE)/i, "新聞図書費"],
+    [/(文具|ノート|ボールペン|ペン|鉛筆|シャープ|消しゴム|コピー用紙|用紙|インク|トナー|ファイル|封筒|テープ|のり|ホチキス|クリップ|付箋|手帳|カレンダー|USB|ケーブル|充電器|電池|マウス|キーボード|SDカード|メモリ|プリンタ|イヤホン|PEN|NOTE|CABLE|BATTERY)/i, "消耗品費"],
+    [/(洗剤|ティッシュ|トイレット|ゴミ袋|ごみ袋|マスク|消毒|清掃|ハンドソープ|ラップ)/, "消耗品費"],
+    [/(ギフト|贈答|手土産|お土産|花束|お中元|お歳暮|御祝|祝儀|香典|GIFT)/i, "接待交際費"],
+    [/(タクシー|乗車券|切符|回数券|チャージ|駐車)/, "旅費交通費"],
+  ];
+  const FOOD = /(定食|丼|ラーメン|そば|蕎麦|うどん|カレー|パスタ|ピザ|寿司|焼き?鳥|餃子|ランチ|ディナー|コース|前菜|サラダ|スープ|ステーキ|ハンバーグ|天ぷら|刺身|おにぎり|弁当|サンド|パン|ケーキ|菓子|チョコ|アイス|ビール|ハイボール|サワー|ワイン|日本酒|焼酎|コーヒー|珈琲|ラテ|紅茶|お茶|緑茶|茶|水|ジュース|コーラ|飲料|ドリンク|CHICKEN|LAMB|BEEF|PORK|FISH|SALAD|SOUP|CURRY|NOODLE|RICE|PASTA|PIZZA|BURGER|SANDWICH|COFFEE|LATTE|TEA|BEER|WINE|WATER|JUICE|MOMO)/i;
+  // 不課税・非課税 items: stamps, revenue stamps, postcards
+  const NONTAX_ITEM = /(収入印紙|印紙|切手|はがき|ハガキ|葉書|レターパック)/;
+  function itemAccount(name) {
+    for (const [re, acc] of ITEM_ACCOUNT_RULES) if (re.test(name)) return acc;
+    if (FOOD.test(name)) return "food";
+    return null;
+  }
+  // Split amount A over weights w so the parts add up exactly (largest remainder).
+  function allocate(A, w) {
+    const W = w.reduce((s, x) => s + x, 0);
+    if (!A) return w.map(() => 0);
+    if (!W) return w.map((_, i) => (i === 0 ? A : 0));
+    const raw = w.map((x) => (A * x) / W), out = raw.map(Math.floor);
+    let rest = A - out.reduce((s, x) => s + x, 0);
+    raw.map((x, i) => [x - Math.floor(x), i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (rest > 0) { out[i]++; rest--; } });
+    return out;
+  }
+  // → [{ account, items (摘要), item_list, amount_10, amount_8, amount_other, hint }] when the items
+  // belong to two or more accounts; [] when the receipt is one account (or items are too unreliable).
+  function splitByAccount({ details, storeAccount, total, a10, a8, other }) {
+    if (!details || details.length < 2 || !total) return [];
+    const sum = details.reduce((s, d) => s + d.price, 0);
+    if (sum < total * 0.5 || sum > total * 1.6) return []; // item prices don't explain the total → don't guess
+    const meal = /^(会議費|接待交際費)$/.test(storeAccount || "");
+    const fallback = storeAccount && storeAccount !== "food" ? storeAccount : "消耗品費";
+    const groups = new Map();
+    for (const d of details) {
+      let acc = itemAccount(d.name), hint = "";
+      if (acc === "food") {
+        if (meal) acc = storeAccount;
+        else { acc = "会議費"; hint = d.reduced ? "food8" : "meal"; }
+      }
+      if (!acc) acc = fallback;
+      if (!groups.has(acc)) groups.set(acc, { account: acc, list: [], names: [], w10: 0, w8: 0, w0: 0, w: 0, hint: "" });
+      const g = groups.get(acc);
+      g.list.push(d.label); g.names.push(d.name); g.w += d.price;
+      if (NONTAX_ITEM.test(d.name)) g.w0 += d.price; else if (d.reduced) g.w8 += d.price; else g.w10 += d.price;
+      if (hint && !g.hint) g.hint = hint;
+    }
+    if (groups.size < 2) return [];
+    const G = [...groups.values()].sort((x, y) => y.w - x.w);
+    const all = G.map((g) => g.w);
+    const pick = (ws) => (ws.some((x) => x > 0) ? ws : all);
+    const p10 = allocate(a10, pick(G.map((g) => g.w10))), p8 = allocate(a8, pick(G.map((g) => g.w8))), p0 = allocate(other, pick(G.map((g) => g.w0)));
+    return G.map((g, i) => ({
+      account: g.account, items: summaryFor(g.account, g.names.join(" ")), item_list: g.list,
+      amount_10: p10[i], amount_8: p8[i], amount_other: p0[i], hint: g.hint || (/^(会議費|接待交際費)$/.test(g.account) ? "meal" : ""),
+    }));
+  }
+  // Store-level account from the shop / company name only (null when the name says nothing).
+  function storeAccountOf(name) {
+    for (const [re, acc] of ACCOUNT_RULES) if (name && re.test(name)) return acc;
+    return null;
   }
 
 
@@ -473,14 +547,19 @@
     const date = findDate(text, year);
     const store = findVendor(lines), company = findCompany(lines), vendor = company || store;
     const found = [total > 0, !!date, !!findInvoiceNo(text)].filter(Boolean).length;
+    const head = store + " " + vendor + " " + lines.slice(0, 5).join(" ");
+    const acc = guessAccount(head, text);
+    const details = extractItemDetails(lines, store, total);
+    const split = splitByAccount({ details, storeAccount: storeAccountOf(head) || (acc.hint === "meal" ? acc.account : null), total, a10, a8, other });
     return {
       date: date || null,
       vendor, store, company, total_score: totalScore,
       invoice_no: findInvoiceNo(text) || null,
-      items: summaryFor(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text).account, text), item_list: extractItems(lines, store, total),
+      items: summaryFor(acc.account, text), item_list: details.map((d) => d.label),
+      lines: split,
       amount_10: a10, amount_8: a8, amount_other: other, total,
       payment: guessPayment(text),
-      ...(({ account, hint }) => ({ account, hint }))(guessAccount(store + " " + vendor + " " + lines.slice(0, 5).join(" "), text)),
+      account: split.length ? split[0].account : acc.account, hint: acc.hint,
       currency: "JPY", language: lang,
       confidence: found >= 2 ? "medium" : "low",
       notes: "",
@@ -614,6 +693,8 @@
     if (!out.store && b.store) out.store = b.store;
     if (!a.invoice_no && b.invoice_no) out.invoice_no = b.invoice_no;
     if ((!a.item_list || !a.item_list.length) && b.item_list && b.item_list.length) out.item_list = b.item_list;
+    // per-account lines must match the chosen amounts: take them from the same read as the total
+    out.lines = out.total === a.total && out.amount_8 === a.amount_8 ? (a.lines && a.lines.length ? a.lines : (b.total === a.total && b.amount_8 === a.amount_8 ? b.lines || [] : [])) : (b.lines || []);
     if (a.payment === "unknown" && b.payment !== "unknown") out.payment = b.payment;
     if (!a.foreign_total && b.foreign_total) out.foreign_total = b.foreign_total;
     const found = [out.date, out.total || out.foreign_total, out.company].filter(Boolean).length;
@@ -621,7 +702,7 @@
     return out;
   }
 
-  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems };
+  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);

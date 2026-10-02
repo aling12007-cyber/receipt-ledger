@@ -138,6 +138,9 @@ dialog .hd{display:flex;justify-content:space-between;align-items:center;padding
 dialog .bd{padding:16px;overflow:auto}
 #imgView img{display:block;width:100%;max-height:80vh;object-fit:contain}
 
+.split-lines{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.split-line{border:1px solid var(--rule-strong);border-radius:6px;padding:10px}
+.split-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .preview-lines{font-size:.82rem;border:1px dashed var(--rule-strong);border-radius:5px;padding:8px 10px;background:var(--paper)}
 .preview-lines div{display:flex;justify-content:space-between;gap:10px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:var(--r);font-size:.9rem;z-index:20;max-width:calc(100vw - 32px)}
@@ -405,7 +408,7 @@ en:{secondPass:"Reading small print at full resolution…",driveFail:"Google sig
  close:"Close",receiptImg:"Receipt image",waiting:"Queued",reading:"AI is reading the receipt…",posted:"Posted",lowConf:"Low confidence — check carefully",aiFilled:"Filled by AI — please check",
  confirm:"Confirm & post",retry:"Read again",remove:"Remove",uploading:"Uploading photo…",photoFail:"Photo not saved ({e}); the entry will still be posted.",
  date:"Date",vendor:"Vendor (store)",client:"Client",regNo:"Registration no.",items:"Description",a10:"10% items (incl. tax)",a8:"8% reduced (incl. tax)",a0:"Non-taxable",debitExp:"Account (debit)",debitInc:"Deposited to (debit)",credit:"Paid by (credit)",ratio:"Business use %",memo:"Memo",
- total:"Receipt total",qualified:"Qualified invoice",noReg:"No registration no.",bigSupply:"¥100,000+: may need depreciation",private:"Private share",biz:"Business {n}%",sales:"Sales",qual:"Qualified",nonqual:"Not qualified",receipt:"Receipt",
+ total:"Receipt total",qualified:"Qualified invoice",noReg:"No registration no.",bigSupply:"¥100,000+: may need depreciation",splitBtn:"Split by account",addLine:"+ Add line",delLine:"Remove line",lineN:"Line {n}",splitNote:"Items on this receipt belong to {n} accounts, so it was split into {n} lines (one receipt image).",splitSum:"Lines total {a} / receipt {b}",splitOff:"Lines differ from the receipt total by {v}",sameReceipt:"同一領収書 {i}/{n}",tPostedN:"Posted {n} lines",private:"Private share",biz:"Business {n}%",sales:"Sales",qual:"Qualified",nonqual:"Not qualified",receipt:"Receipt",
  editTitle:"Edit entry",newExp:"Add an expense",newInc:"Record income",post:"Post",saveChanges:"Save changes",viewReceipt:"View receipt",del:"Delete",delQ:"Delete this entry? The receipt image and the change history are kept for your records.",cancel:"Cancel",
  tPosted:"Posted: {v}",tUpdated:"Updated",tDeleted:"Deleted",errDate:"Enter a transaction date.",errAmt:"Enter an amount.",errStore:"Not connected to storage yet.",saveFail:"Could not save",
  emptyJ:"No entries yet. These are examples; they'll be replaced once you post your first receipt.",countJ:"{y}: {n} shown of {t}",noMatch:"No entries match these filters.",noExp:"No expenses for {y} yet. They'll be totalled by account here.",expTotal:"Total expenses",
@@ -435,7 +438,7 @@ ja:{secondPass:"小さい文字を高解像度で再読取中…",driveFail:"Goo
  close:"閉じる",receiptImg:"レシート画像",waiting:"待機中",reading:"AIがレシートを読み取り中…",posted:"記帳済み",lowConf:"読取精度が低め、要確認",aiFilled:"AIが入力しました。確認してください",
  confirm:"確定して記帳",retry:"再読取",remove:"削除",uploading:"画像をアップロード中…",photoFail:"画像を保存できませんでした（{e}）。仕訳は記帳します。",
  date:"取引日",vendor:"取引先（店名）",client:"取引先（顧客）",regNo:"登録番号",items:"摘要（内容）",a10:"10%対象（税込）",a8:"8%軽減（税込）",a0:"不課税・非課税",debitExp:"勘定科目（借方）",debitInc:"借方（入金先）",credit:"支払方法（貸方）",ratio:"事業割合 %",memo:"備考",
- total:"レシート合計",qualified:"適格請求書",noReg:"登録番号なし",bigSupply:"10万円以上：減価償却の可能性",private:"私用分",biz:"事業 {n}%",sales:"売上",qual:"適格",nonqual:"非適格",receipt:"画像",
+ total:"レシート合計",qualified:"適格請求書",noReg:"登録番号なし",bigSupply:"10万円以上：減価償却の可能性",splitBtn:"科目を分ける",addLine:"＋ 行を追加",delLine:"この行を削除",lineN:"{n}行目",splitNote:"品目が{n}つの科目に分かれるため、{n}行に分けました（領収書画像は共通）。",splitSum:"行の合計 {a}／レシート {b}",splitOff:"レシート合計と{v}の差があります",sameReceipt:"同一領収書 {i}/{n}",tPostedN:"{n}行を記帳しました",private:"私用分",biz:"事業 {n}%",sales:"売上",qual:"適格",nonqual:"非適格",receipt:"画像",
  editTitle:"仕訳を編集",newExp:"経費を手入力",newInc:"売上を記帳",post:"記帳",saveChanges:"変更を保存",viewReceipt:"レシートを見る",del:"削除",delQ:"この仕訳を削除しますか？レシート画像と訂正・削除の履歴は保存されたままです。",cancel:"キャンセル",
  tPosted:"記帳しました：{v}",tUpdated:"更新しました",tDeleted:"削除しました",errDate:"取引日を入力してください。",errAmt:"金額を入力してください。",errStore:"保存先に接続されていません。",saveFail:"保存できませんでした",
  emptyJ:"まだ仕訳がありません。以下は例です。最初のレシートを記帳すると置き換わります。",countJ:"{y}年：{n}件表示（全{t}件）",noMatch:"条件に合う仕訳はありません。",noExp:"{y}年の経費はまだありません。記帳すると科目別に集計されます。",expTotal:"経費計",
@@ -465,7 +468,7 @@ zh:{secondPass:"以高解析度重新辨識小字中…",driveFail:"Google 登�
  close:"關閉",receiptImg:"收據影像",waiting:"排隊中",reading:"AI 正在讀取收據…",posted:"已入帳",lowConf:"辨識信心低，請仔細核對",aiFilled:"AI 已填入，請核對",
  confirm:"確認入帳",retry:"重新辨識",remove:"移除",uploading:"上傳照片…",photoFail:"照片未能保存（{e}），仍會記帳。",
  date:"取引日",vendor:"取引先（店名）",client:"取引先（客戶）",regNo:"登録番号",items:"摘要（內容）",a10:"10% 對象（含稅）",a8:"8% 軽減（含稅）",a0:"不課税・非課税",debitExp:"勘定科目（借方）",debitInc:"借方（入金帳戶）",credit:"支付方式（貸方）",ratio:"事業比例 %",memo:"備註",
- total:"收據合計",qualified:"適格請求書",noReg:"無登録番号",bigSupply:"10 萬円以上：可能需改列減価償却",private:"私用部分",biz:"事業 {n}%",sales:"売上",qual:"適格",nonqual:"非適格",receipt:"收據",
+ total:"收據合計",qualified:"適格請求書",noReg:"無登録番号",bigSupply:"10 萬円以上：可能需改列減価償却",splitBtn:"分開科目",addLine:"＋ 新增一行",delLine:"刪除這行",lineN:"第 {n} 行",splitNote:"這張收據的品項屬於 {n} 個科目，已分成 {n} 行（共用同一張收據影像）。",splitSum:"各行合計 {a}／收據 {b}",splitOff:"與收據合計相差 {v}",sameReceipt:"同一領収書 {i}/{n}",tPostedN:"已記帳 {n} 行",private:"私用部分",biz:"事業 {n}%",sales:"売上",qual:"適格",nonqual:"非適格",receipt:"收據",
  editTitle:"編輯仕訳",newExp:"手動記一筆支出",newInc:"記一筆收入",post:"入帳",saveChanges:"儲存變更",viewReceipt:"看收據",del:"刪除",delQ:"確定刪除這筆仕訳？收據影像與修改紀錄仍會保留。",cancel:"取消",
  tPosted:"已入帳：{v}",tUpdated:"已更新",tDeleted:"已刪除",errDate:"請填寫取引日。",errAmt:"請填寫金額。",errStore:"尚未連上帳冊儲存空間。",saveFail:"儲存失敗",
  emptyJ:"尚無仕訳。以下是範例，拍第一張收據後會換成你的帳。",countJ:"{y}年：顯示 {n} 筆（共 {t} 筆）",noMatch:"沒有符合條件的仕訳。",noExp:"{y}年還沒有經費。入帳後這裡會依科目加總。",expTotal:"經費計",
@@ -484,7 +487,7 @@ const ACC_TR={
  "事業主借":["Owner's contribution","業主借入"],"現金":["Cash","現金"],"普通預金":["Bank account","銀行存款"],"未払金":["Payable (card)","應付款"],"売掛金":["Receivable","應收帳款"],"事業主貸":["Owner's drawings","業主提領"],"売上高":["Sales","營業收入"]};
 let lang="en";
 try{const s=localStorage.getItem("lang");if(s&&I18N[s])lang=s;else{const n=(navigator.language||"").toLowerCase();lang=n.startsWith("ja")?"ja":n.startsWith("zh")?"zh":"en"}}catch(e){}
-const t=(k,v)=>{let s=(I18N[lang][k]??I18N.en[k]??k);if(v)for(const x in v)s=s.replace("{"+x+"}",v[x]);return s};
+const t=(k,v)=>{let s=(I18N[lang][k]??I18N.en[k]??k);if(v)for(const x in v)s=s.split("{"+x+"}").join(v[x]);return s};
 const accText=a=>{if(lang==="ja"||!ACC_TR[a])return a;return ACC_TR[a][lang==="en"?0:1]+" · "+a};
 const accHTML=a=>{if(lang==="ja"||!ACC_TR[a])return esc(a);return esc(ACC_TR[a][lang==="en"?0:1])+`<span class="jp">${esc(a)}</span>`};
 
@@ -555,10 +558,27 @@ function linesOf(e){
   if(priv>0) L.push({dr:"事業主貸",cr,amt:priv,priv:true});
   return L;
 }
-const qualOK=e=>isQualified(e.invoiceNo)||(settings.shogaku==="1"&&totalOf(e)<10000);
+const receiptTotal=e=>e.assetId?entries.filter(x=>x.assetId===e.assetId).reduce((s,x)=>s+totalOf(x),0)||totalOf(e):totalOf(e);
+const qualOK=e=>isQualified(e.invoiceNo)||(settings.shogaku==="1"&&receiptTotal(e)<10000);
 
 // ===== entry form =====
-function formHTML(d,p){
+const LINE_KEYS=["debit","items","amt10","amt8","amt0","memo"];
+const isSplit=d=>Array.isArray(d.split)&&d.split.length>=2;
+function splitHTML(d,p){
+  const cell=(i,k,lab,inner)=>`<label class="f" for="${p}_s${i}_${k}"><span>${t(lab)}</span>${inner}</label>`;
+  const num=(i,k,v)=>`<input type="number" inputmode="numeric" class="num" id="${p}_s${i}_${k}" data-s="${i}:${k}" value="${v||""}">`;
+  return `<div class="split-lines">${d.split.map((l,i)=>`<div class="split-line">
+    <div class="split-head"><b>${t("lineN",{n:i+1})}</b><button type="button" class="btn ghost small" data-delline="${i}" aria-label="${esc(t("delLine"))}">×</button></div>
+    <div class="grid">
+      ${cell(i,"debit","debitExp",`<select id="${p}_s${i}_debit" data-s="${i}:debit">${opts(EXPENSE_ACCOUNTS,l.debit,accText)}</select>`)}
+      <label class="f span2" for="${p}_s${i}_items"><span>${t("items")}</span><input id="${p}_s${i}_items" data-s="${i}:items" value="${esc(l.items)}" data-auto="${esc(l.itemsAuto||"")}"></label>
+      ${cell(i,"amt10","a10",num(i,"amt10",l.amt10))}${cell(i,"amt8","a8",num(i,"amt8",l.amt8))}${cell(i,"amt0","a0",num(i,"amt0",l.amt0))}
+      <label class="f span2" for="${p}_s${i}_memo"><span>${t("memo")}</span><input id="${p}_s${i}_memo" data-s="${i}:memo" value="${esc(l.memo)}"></label>
+    </div></div>`).join("")}
+    <button type="button" class="btn ghost small" data-addline>${t("addLine")}</button></div>`;
+}
+function formHTML(d,p,o){
+  if(isSplit(d)&&d.type!=="income") return formSplitHTML(d,p);
   const inc=d.type==="income";const id=k=>p+"_"+k;
   const fld=(k,lab,inner)=>`<label class="f ${k}" for="${id(lab)}"><span>${t(lab)}</span>${inner}</label>`;
   const num=k=>`<input type="number" inputmode="numeric" class="num" id="${id(k)}" data-k="${k}" value="${d[k]||""}">`;
@@ -574,7 +594,26 @@ function formHTML(d,p){
     ${inc?"":`<label class="f" for="${id("credit")}">${t("credit")}<select id="${id("credit")}" data-k="credit">${opts(CREDIT_ACCOUNTS,d.credit,accText)}</select></label>
     <label class="f" for="${id("bizRatio")}">${t("ratio")}<input type="number" min="0" max="100" class="num" id="${id("bizRatio")}" data-k="bizRatio" value="${d.bizRatio??100}"></label>`}
     <label class="f span2" for="${id("memo")}">${t("memo")}<input id="${id("memo")}" data-k="memo" value="${esc(d.memo)}"></label>
-  </div><div class="preview-lines" data-preview style="margin-top:12px"></div>`;
+  </div>${o&&o.splittable&&!inc?`<div style="margin-top:8px"><button type="button" class="btn ghost small" data-splitbtn>${t("splitBtn")}</button></div>`:""}<div class="preview-lines" data-preview style="margin-top:12px"></div>`;
+}
+// One receipt, several accounts: shared fields once, then one block per account line.
+function formSplitHTML(d,p){
+  const id=k=>p+"_"+k;
+  return `<div class="grid">
+    <label class="f" for="${id("date")}">${t("date")}<input type="date" id="${id("date")}" data-k="date" value="${esc(d.date)}"></label>
+    <label class="f span2" for="${id("vendor")}">${t("vendor")}<input id="${id("vendor")}" data-k="vendor" value="${esc(d.vendor)}"></label>
+    <label class="f" for="${id("invoiceNo")}">${t("regNo")}<input id="${id("invoiceNo")}" data-k="invoiceNo" value="${esc(d.invoiceNo)}" placeholder="T1234567890123"></label>
+    <label class="f" for="${id("credit")}">${t("credit")}<select id="${id("credit")}" data-k="credit">${opts(CREDIT_ACCOUNTS,d.credit,accText)}</select></label>
+    <label class="f" for="${id("bizRatio")}">${t("ratio")}<input type="number" min="0" max="100" class="num" id="${id("bizRatio")}" data-k="bizRatio" value="${d.bizRatio??100}"></label>
+  </div>${splitHTML(d,p)}<div class="preview-lines" data-preview style="margin-top:12px"></div>`;
+}
+// The entries a draft becomes: one, or one per split line (same receipt image, ids <base>-1, -2 …)
+function draftEntries(d){
+  if(!isSplit(d)) return [d];
+  const {split,...shared}=d;
+  const lines=split.filter(l=>totalOf(l)>0),n=lines.length;
+  return lines.map((l,i)=>({...shared,...Object.fromEntries(LINE_KEYS.map(k=>[k,l[k]])),id:l.id,
+    memo:[l.memo,n>1?t("sameReceipt",{i:i+1,n}):""].filter(Boolean).join(" ")}));
 }
 function readForm(root,base){
   const d={...base};
@@ -582,10 +621,24 @@ function readForm(root,base){
     if(["amt10","amt8","amt0","bizRatio"].includes(k)) v=v===""?(k==="bizRatio"?100:0):Math.round(+v);
     if(k==="invoiceNo") v=v.replace(/[\s-]/g,"").toUpperCase();
     d[k]=v;});
+  if(Array.isArray(base.split)){d.split=base.split.map(l=>({...l}));
+    root.querySelectorAll("[data-s]").forEach(el=>{const [i,k]=el.dataset.s.split(":");let v=el.value;
+      if(["amt10","amt8","amt0"].includes(k)) v=v===""?0:Math.round(+v);
+      if(d.split[+i]) d.split[+i][k]=v;});}
   return d;
 }
 function updatePreview(root,base){
   const d=readForm(root,base);
+  if(isSplit(d)&&d.type!=="income"){
+    const es=draftEntries(d);
+    let h=es.flatMap(e=>linesOf(e)).map(l=>`<div><span>Dr ${esc(accText(l.dr))} / Cr ${esc(accText(l.cr))}</span><span class="num">${yen(l.amt)}</span></div>`).join("");
+    const sum=d.split.reduce((s,l)=>s+totalOf(l),0),rt=+d.receiptTotal||0;
+    h+=`<div class="muted"><span>${rt?t("splitSum",{a:yen(sum),b:yen(rt)}):t("total")}</span><span class="num">${yen(sum)}</span></div>`;
+    const c=[isQualified(d.invoiceNo)?`<span class="chip ok">${t("qualified")}</span>`:`<span class="chip no">${t("noReg")}</span>`];
+    if(rt&&sum!==rt) c.push(`<span class="chip low">${t("splitOff",{v:yen(Math.abs(sum-rt))})}</span>`);
+    h+=`<div style="justify-content:flex-start;gap:6px;margin-top:4px">${c.join("")}</div>`;
+    root.querySelector("[data-preview]").innerHTML=h;return;
+  }
   let h=linesOf(d).map(l=>`<div><span>Dr ${esc(accText(l.dr))} / Cr ${esc(accText(l.cr))}</span><span class="num">${yen(l.amt)}</span></div>`).join("");
   h+=`<div class="muted"><span>${t("total")}</span><span class="num">${yen(totalOf(d))}</span></div>`;
   if(d.type!=="income"){
@@ -598,6 +651,9 @@ function updatePreview(root,base){
 function wireForm(root,base){
   root.addEventListener("input",()=>updatePreview(root,base));
   root.addEventListener("change",e=>{
+    const s=e.target.dataset.s;
+    if(s&&s.endsWith(":debit")){const i=s.split(":")[0],it=root.querySelector(`[data-s="${i}:items"]`);
+      if(it&&(it.value===""||it.value===it.dataset.auto)){const v=ReceiptOCR.summaryFor(e.target.value,base._ctx||"");it.value=v;it.dataset.auto=v;updatePreview(root,base)}return}
     if(e.target.dataset.k!=="debit"||base.type==="income")return;
     const it=root.querySelector('[data-k="items"]');if(!it)return;
     if(it.value===""||it.value===it.dataset.auto){const v=ReceiptOCR.summaryFor(e.target.value,base._ctx||"");it.value=v;it.dataset.auto=v;updatePreview(root,base)}
@@ -618,7 +674,7 @@ async function loadEntries(){
   }
   entries=out.map(fromRow);fillYears();render();
 }
-async function saveEntry(d){
+async function saveEntry(d,opt){
   if(!sb||!uid) throw {message:t("errStore")};
   if(!d.date) throw {message:t("errDate")};
   if(totalOf(d)<=0) throw {message:t("errAmt")};
@@ -627,7 +683,7 @@ async function saveEntry(d){
   const row=toRow({...d,id,credit:inc?"売上高":(d.credit||"事業主借"),bizRatio:inc?100:(d.bizRatio===""?100:+d.bizRatio)});
   const {error}=await sb.from("entries").upsert(row);
   if(error) throw {message:error.message};
-  await loadEntries();
+  if(!(opt&&opt.noReload)) await loadEntries();
   return id;
 }
 
@@ -739,8 +795,21 @@ async function processOne(q){
     const core=x=>String(x||"").replace(/株式会社|有限会社|合同会社|[（(]\s*[株有]\s*[)）]|株$|\s/g,"");
     if(r.store&&core(r.store)&&!core(q.draft.vendor).includes(core(r.store))&&!core(r.store).includes(core(q.draft.vendor))){q.draft.memo="店舗："+r.store+(q.draft.memo?"／"+q.draft.memo:"")}
     // meals: remind that a solo meal is personal; takeout food/groceries are usually personal too
-    const hint=r.hint||(/^(会議費|接待交際費)$/.test(q.draft.debit)?"meal":"");
-    if(hint&&cur==="JPY") q.draft.aiNotes=t(hint==="meal"?"mealNote":"food8Note")+(q.draft.aiNotes?" "+q.draft.aiNotes:"");
+    let hint=r.hint||(/^(会議費|接待交際費)$/.test(q.draft.debit)?"meal":"");
+    q.draft.receiptTotal=totalOf(q.draft);
+    // Items belonging to different accounts → one line per account (same receipt image)
+    const rl=Array.isArray(r.lines)?r.lines.filter(l=>l&&EXPENSE_ACCOUNTS.includes(l.account)):[];
+    if(cur==="JPY"&&rl.length>=2){
+      const store=(q.draft.memo.match(/^店舗：[^／]*/)||[""])[0];
+      q.draft.split=rl.map(l=>{const il=Array.isArray(l.item_list)?l.item_list.filter(Boolean).map(String):[];
+        const lab=(l.items&&aiEnabled&&!r.fromPdfText)?String(l.items):(ReceiptOCR.summaryFor(l.account,il.join(" "))||l.items||"");
+        return {debit:l.account,items:lab,itemsAuto:lab,amt10:Math.round(+l.amount_10||0),amt8:Math.round(+l.amount_8||0),amt0:Math.round(+l.amount_other||0),
+          memo:[store,il.join("、")].filter(Boolean).join("／"),hint:l.hint||""}});
+      q.draft.debit=q.draft.split[0].debit;
+      const hs=q.draft.split.map(l=>l.hint).filter(Boolean);hint=hs.includes("meal")?"meal":hs[0]||"";
+      q.draft.aiNotes=t("splitNote",{n:q.draft.split.length})+(q.draft.aiNotes?" "+q.draft.aiNotes:"");
+    }
+    if(hint&&cur==="JPY") q.draft.aiNotes=(q.draft.aiNotes?q.draft.aiNotes+" ":"")+t(hint==="meal"?"mealNote":"food8Note");
     q.status="review";q.errKey=null;
   }catch(e){
     const m={auth:"eAuthApi",rate_limited:"eRate",invalid_json:"eJson",ocr:"eOcr"};
@@ -754,12 +823,12 @@ function renderQueue(){
     const card=document.createElement("div");card.className="qcard";
     let right="";
     if(q.status==="waiting"||q.status==="reading") right=`<div class="status">${q.status==="reading"?`<span class="spinner"></span>${t(aiEnabled?"reading":"ocrReading")} <span class="num" id="prog_${q.id}"></span>`:t("waiting")}</div>`;
-    else if(q.status==="saved") right=`<div class="status"><span class="chip ok">${t("posted")}</span><span class="muted">${esc(q.draft.date)} ${esc(q.draft.vendor)} ${yen(totalOf(q.draft))}</span></div>`;
+    else if(q.status==="saved"){const es=draftEntries(q.draft);right=`<div class="status"><span class="chip ok">${t("posted")}</span><span class="muted">${esc(q.draft.date)} ${esc(q.draft.vendor)} ${yen(es.reduce((s,e)=>s+totalOf(e),0))}${es.length>1?" · "+es.map(e=>esc(accText(e.debit))).join(" / "):""}</span></div>`}
     else{
       const c=q.draft.aiConfidence;
       const note=q.errKey?`<div class="banner warn small" style="margin:0 0 12px">${esc(t(q.errKey)+(q.errExtra||""))}</div>`:
         `<div class="small" style="margin-bottom:10px">${c==="low"?`<span class="chip low">${t("lowConf")}</span> `:c?`<span class="chip inc">${t(q.fromPdfText?"pdfFilled":aiEnabled?"aiFilled":"ocrFilled")}</span> `:""}${q.draft.detectedLang&&I18N.en["lang_"+q.draft.detectedLang]?`<span class="chip inc">${t("detected",{l:t("lang_"+q.draft.detectedLang)})}</span> `:""}${q.draft.aiNotes?`<span class="muted">${esc(q.draft.aiNotes)}</span>`:""}</div>`;
-      right=`${note}<div data-form>${formHTML(q.draft,q.id)}</div>
+      right=`${note}<div data-form>${formHTML(q.draft,q.id,{splittable:true})}</div>
         <div class="row" style="margin-top:12px"><button class="btn primary" data-save>${t("confirm")}</button><button class="btn ghost" data-retry ${sample&&canImages?"":"hidden"}>${t("retry")}</button><button class="btn ghost" data-drop>${t("remove")}</button><span class="small" data-msg></span></div>`;
     }
     card.innerHTML=`<div class="stack" style="gap:8px">${q.url?`<img class="thumb" src="${q.url}" alt="${esc(t("receiptImg"))}" data-zoom="${q.url}">`:`<div class="thumb pdfph">${q.isPdf?"PDF":"HEIC"}</div>`}`+`<span class="small muted" style="overflow-wrap:anywhere">${esc(q.file.name)}</span></div><div style="min-width:0">${right}</div>`;
@@ -768,6 +837,16 @@ function renderQueue(){
     if(form){
       wireForm(form,q.draft);
       form.addEventListener("input",()=>{q.draft=readForm(form,q.draft)});
+      form.addEventListener("click",ev=>{
+        const b=ev.target.closest("[data-splitbtn],[data-addline],[data-delline]");if(!b)return;
+        const d=readForm(form,q.draft);
+        const blank=()=>({debit:"消耗品費",items:"",itemsAuto:"",amt10:0,amt8:0,amt0:0,memo:""});
+        if(b.hasAttribute("data-splitbtn")){d.receiptTotal=d.receiptTotal||totalOf(d);d.split=[Object.fromEntries(LINE_KEYS.map(k=>[k,d[k]])),blank()];d.split[0].itemsAuto=d.itemsAuto||""}
+        else if(b.hasAttribute("data-addline")) d.split.push(blank());
+        else{d.split.splice(+b.dataset.delline,1);
+          if(d.split.length<2){const l=d.split[0]||blank();LINE_KEYS.forEach(k=>d[k]=l[k]);d.itemsAuto=l.itemsAuto||"";delete d.split}}
+        q.draft=d;renderQueue();
+      });
       card.querySelector("[data-save]").onclick=async ev=>{
         const btn=ev.currentTarget;btn.disabled=true;const msg=card.querySelector("[data-msg]");const d=readForm(form,q.draft);
         try{if(q.blob&&!d.assetId){msg.textContent=t("uploading");
@@ -776,7 +855,17 @@ function renderQueue(){
           const {error}=await sb.storage.from("receipts").upload(path,q.isPdf?q.file:q.blob,{contentType:q.isPdf?"application/pdf":"image/jpeg",upsert:false});
           if(error)throw error;d.assetId=path}}
         catch(e){msg.textContent=t("photoFail",{e:e.message||e.code})}
-        try{await saveEntry(d);q.draft=d;q.status="saved";renderQueue();toast(t("tPosted",{v:d.vendor||d.items}));
+        try{
+          const es=draftEntries(d);
+          if(isSplit(d)){
+            if(!es.length) throw {message:t("errAmt")};
+            const base="e"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+            // fixed ids per line, so pressing Confirm again after an error never posts a line twice
+            let n=0;d.split.forEach(l=>{if(totalOf(l)>0&&!l.id)l.id=base+"-"+(++n)});
+            for(const e of draftEntries(d)) await saveEntry(e,{noReload:true});
+            await loadEntries();
+          }else await saveEntry(d);
+          q.draft=d;q.status="saved";renderQueue();toast(es.length>1?t("tPostedN",{n:es.length}):t("tPosted",{v:d.vendor||d.items}));
           if(q.driveId){settings.driveImported=settings.driveImported||[];if(!settings.driveImported.includes(q.driveId)){settings.driveImported.push(q.driveId);persistSettings()}}}
         catch(e){btn.disabled=false;msg.textContent=e.message||t("saveFail");msg.style.color="var(--shu)"}
       };
