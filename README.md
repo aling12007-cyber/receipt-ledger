@@ -100,7 +100,7 @@ vercel.json           伺服器設定（AI 辨識最長 60 秒）
 1. 打開 <https://console.cloud.google.com/>，上方專案選單 → **新增專案**，名稱 `receipt-ledger` → 建立。
 2. 左側 **API 和服務 → 程式庫**，分別搜尋並 **啟用**：`Google Drive API`、`Google Picker API`。
 3. 左側 **Google Auth Platform**（或「OAuth 同意畫面」）→ 開始設定：應用程式名稱 `Receipt Ledger`、支援 email 填你的 Gmail、目標對象選 **外部**，並在「測試使用者」加入你自己的 Gmail。
-4. **用戶端（Clients）→ 建立用戶端** → 類型 **網頁應用程式** →「已授權的 JavaScript 來源」加入 `https://receipt-ledger-pi.vercel.app` → 建立，複製 **用戶端 ID**。
+4. **用戶端（Clients）→ 建立用戶端** → 類型 **網頁應用程式** →「已授權的 JavaScript 來源」加入 `https://receipt-ledger-pi.vercel.app`，「已授權的重新導向 URI」加入 `https://receipt-ledger-pi.vercel.app/`（結尾要有斜線）→ 建立，複製 **用戶端 ID**。
 5. **API 和服務 → 憑證 → 建立憑證 → API 金鑰** → 編輯：應用程式限制選 **HTTP 參照網址** `https://receipt-ledger-pi.vercel.app/*`，API 限制只勾 **Google Picker API**，複製 **API 金鑰**。
 6. 資訊主頁的「專案資訊」裡複製 **專案編號**（一串數字）。
 7. Vercel 新增環境變數 `GOOGLE_CLIENT_ID`、`GOOGLE_API_KEY`、`GOOGLE_APP_ID`（=專案編號），然後 Redeploy。

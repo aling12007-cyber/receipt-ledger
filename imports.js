@@ -5,7 +5,6 @@
   const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const HEIC2ANY = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
   const GAPI = "https://apis.google.com/js/api.js";
-  const GIS = "https://accounts.google.com/gsi/client";
 
   const loaded = {};
   function loadScript(src) {
@@ -91,28 +90,39 @@
   // Uses the drive.file scope: the site can open only the files the user picks, nothing else in Drive.
   const SCOPE = "https://www.googleapis.com/auth/drive.file";
   const MIME = "image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf";
-  let tokenClient = null, token = null, tokenExp = 0;
+
 
   async function ensureGoogle() {
-    await Promise.all([loadScript(GAPI), loadScript(GIS)]);
+    await loadScript(GAPI);
     if (!root.google || !root.google.picker) await new Promise((res, rej) => root.gapi.load("picker", { callback: res, onerror: () => rej(new Error("Google Picker failed to load")) }));
   }
-  function getToken(clientId) {
-    if (token && Date.now() < tokenExp - 60000) return Promise.resolve(token);
-    return new Promise((res, rej) => {
-      tokenClient = root.google.accounts.oauth2.initTokenClient({
-        client_id: clientId, scope: SCOPE,
-        callback: (r) => {
-          if (r.error) return rej(Object.assign(new Error(r.error_description || r.error), { code: r.error }));
-          // Google's consent screen lets people untick the Drive permission; without it nothing can be opened.
-          if (root.google.accounts.oauth2.hasGrantedAllScopes && !root.google.accounts.oauth2.hasGrantedAllScopes(r, SCOPE))
-            return rej(Object.assign(new Error("Drive permission was not ticked"), { code: "scope" }));
-          token = r.access_token; tokenExp = Date.now() + (r.expires_in || 3600) * 1000; res(token);
-        },
-        error_callback: (e) => rej(Object.assign(new Error(e && (e.message || e.type) || "Google sign-in was cancelled"), { code: e && e.type || "popup" })),
-      });
-      tokenClient.requestAccessToken({ prompt: token ? "" : "consent" });
-    });
+  // Sign-in by full-page redirect (more reliable than pop-ups, which some browsers open as tabs
+  // and then lose the connection back to this page). The token lives in sessionStorage for ~1 hour.
+  const TK = "gdrive_token", ST = "gdrive_state";
+  const redirectUri = () => location.origin + "/";
+  function savedToken() {
+    try { const o = JSON.parse(sessionStorage.getItem(TK) || "null"); if (o && Date.now() < o.exp - 60000) return o.token; } catch (e) {}
+    return null;
+  }
+  // Call once on page load: picks up "#access_token=…" after Google sends the user back.
+  function handleRedirect() {
+    const h = location.hash || "";
+    if (!/access_token=|error=/.test(h)) return null;
+    const p = new URLSearchParams(h.slice(1));
+    let expected = null; try { expected = sessionStorage.getItem(ST); sessionStorage.removeItem(ST); } catch (e) {}
+    history.replaceState(null, "", location.pathname + location.search); // remove the token from the address bar
+    if (!expected || p.get("state") !== expected) return { error: "state" };
+    if (p.get("error")) return { error: p.get("error") };
+    const granted = (p.get("scope") || "").split(/\s+/);
+    if (!granted.includes(SCOPE)) return { error: "scope" };
+    try { sessionStorage.setItem(TK, JSON.stringify({ token: p.get("access_token"), exp: Date.now() + (+p.get("expires_in") || 3600) * 1000 })); } catch (e) {}
+    return { ok: true };
+  }
+  function startSignIn(clientId) {
+    const state = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try { sessionStorage.setItem(ST, state); } catch (e) {}
+    const q = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri(), response_type: "token", scope: SCOPE, include_granted_scopes: "true", state });
+    location.assign("https://accounts.google.com/o/oauth2/v2/auth?" + q.toString());
   }
   function pick(cfg, accessToken, locale) {
     const P = root.google.picker;
@@ -153,8 +163,9 @@
   }
   // cfg: { googleClientId, googleApiKey, googleAppId }. Returns File[] (each with .driveId).
   async function pickFromDrive(cfg, opts) {
+    const tk = savedToken();
+    if (!tk) { startSignIn(cfg.googleClientId); return { redirecting: true }; }
     await ensureGoogle();
-    const tk = await getToken(cfg.googleClientId);
     const docs = await pick(cfg, tk, opts && opts.locale);
     const out = [];
     for (const d of docs) {
@@ -165,7 +176,7 @@
     return out;
   }
 
-  const api = { isPdf, isHeic, isImage, accepted, linesFromTextItems, readPdf, heicToJpeg, canDecode, pickFromDrive };
+  const api = { isPdf, isHeic, isImage, accepted, linesFromTextItems, readPdf, heicToJpeg, canDecode, pickFromDrive, handleRedirect, redirectUri };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Imports = api;
 })(typeof window !== "undefined" ? window : globalThis);
