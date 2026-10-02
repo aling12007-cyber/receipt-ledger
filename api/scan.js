@@ -29,7 +29,7 @@ export function parseJson(text) {
 }
 
 async function getUser(token) {
-  const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_ANON_KEY;
+  const url = String(process.env.SUPABASE_URL || "").trim(), key = String(process.env.SUPABASE_ANON_KEY || "").trim();
   if (!url || !key || !token) return null;
   const r = await fetch(`${url.replace(/\/$/, "")}/auth/v1/user`, { headers: { Authorization: `Bearer ${token}`, apikey: key } });
   if (!r.ok) return null;
@@ -53,9 +53,9 @@ export default async function handler(req, res) {
 
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    headers: { "content-type": "application/json", "x-api-key": String(process.env.ANTHROPIC_API_KEY).trim(), "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
+      model: String(process.env.ANTHROPIC_MODEL || "").trim() || "claude-sonnet-5-5",
       max_tokens: 800,
       messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: mediaType, data: image } },
