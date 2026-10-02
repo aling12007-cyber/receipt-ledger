@@ -294,7 +294,9 @@
   }
 
 
+  const GOLF = /(カントリー\s*クラブ|カントリー倶楽部|カンツリー|ゴルフ|GOLF|ＰＧＭ|PGM\b|アコーディア|ACCORDIA|ゴルフ場利用税|プレー代)/i;
   const ACCOUNT_RULES = [
+    [GOLF, "接待交際費"],
     [/(タクシー|交通|JR|鉄道|駅|乗車|SUICA|PASMO|ICOCA|バス|新幹線|航空|高速|駐車|パーキング|ガソリン|ENEOS|出光|コスモ石油)/i, "旅費交通費"],
     [/(郵便|切手|レターパック|ゆうパック|携帯|docomo|ドコモ|KDDI|au by|softbank|ソフトバンク|楽天モバイル|通信料|月額プラン|年額プラン|サブスク|SUBSCRIPTION|ADOBE|CREATIVE CLOUD|GOOGLE WORKSPACE|MICROSOFT 365|OFFICE 365|AWS|AMAZON WEB SERVICES|さくらインターネット|エックスサーバー|XSERVER|お名前\.com|ドメイン|サーバー|CHATGPT|OPENAI|ANTHROPIC|CLAUDE|CANVA|ZOOM|SLACK|NOTION|DROPBOX|FIGMA)/i, "通信費"],
     [/(ヤマト|佐川|宅急便|宅配|運輸)/, "荷造運賃"],
@@ -351,7 +353,7 @@
     const by = (pairs, dflt) => { for (const [re, label] of pairs) if (re.test(t)) return label; return dflt; };
     switch (account) {
       case "会議費": return by([[/(コーヒー|珈琲|カフェ|COFFEE|CAFE|ラテ|紅茶)/i, "打合せ喫茶代"]], "打合せ飲食代");
-      case "接待交際費": return by([[/(贈答|ギフト|お中元|お歳暮|花束|手土産)/, "贈答品代"], [/(慶弔|香典|祝儀)/, "慶弔費"]], "接待飲食代");
+      case "接待交際費": return by([[/([プブフ]レー代|プレイ|ゴルフ|GOLF|練習場|ラウンド|グリーンフィ|カントリークラブ)/i, "ゴルフプレー代"], [/(贈答|ギフト|お中元|お歳暮|花束|手土産)/, "贈答品代"], [/(慶弔|香典|祝儀)/, "慶弔費"]], "接待飲食代");
       case "旅費交通費": return by([[/タクシー|TAXI|運賃/i, "タクシー代"], [/新幹線/, "新幹線代"], [/(航空|AIR|ANA|JAL|PEACH)/i, "航空券代"], [/(ホテル|HOTEL|宿泊|旅館)/i, "宿泊費"], [/(駐車|パーキング|PARKING)/i, "駐車場代"], [/(ガソリン|ENEOS|出光|コスモ)/i, "ガソリン代"], [/(高速|ETC)/i, "高速道路代"], [/(JR|鉄道|電車|SUICA|PASMO|ICOCA|乗車券|定期)/i, "電車代"], [/バス/, "バス代"]], "交通費");
       case "通信費": return by([[/(切手|はがき|ハガキ|レターパック|郵便|ゆうパック)/, "郵送料"], [/(携帯|スマホ|docomo|ドコモ|softbank|楽天モバイル|KDDI)/i, "携帯電話料金"], [/(光回線|インターネット|プロバイダ|Wi-?Fi)/i, "インターネット料金"], [/(サーバー|ドメイン|XSERVER|さくら|AWS)/i, "サーバー・ドメイン代"]], /(月額|年額|サブスク|SUBSCRIPTION|ADOBE|GOOGLE|MICROSOFT|CHATGPT|OPENAI|CLAUDE|CANVA|ZOOM|SLACK|NOTION|DROPBOX|FIGMA)/i.test(t) ? "ソフトウェア利用料" : "通信費");
       case "消耗品費": return by([[/(文具|ボールペン|ノート|コピー用紙|用紙|インク|トナー|ファイル|封筒|テープ)/, "事務用品代"], [/(USB|ケーブル|マウス|キーボード|電池|充電)/i, "PC周辺機器"], [/(洗剤|ティッシュ|トイレット|清掃)/, "日用品代"]], "消耗品代");
@@ -361,7 +363,7 @@
       case "荷造運賃": return "配送料";
       case "広告宣伝費": return "広告宣伝費";
       case "地代家賃": return by([[/(駐車場|パーキング)/, "駐車場賃料"], [/(コワーキング|シェアオフィス)/, "コワーキング利用料"]], "家賃");
-      case "租税公課": return by([[/印紙/, "収入印紙代"]], "租税公課");
+      case "租税公課": return by([[/印紙/, "収入印紙代"], [/(場利用税|ゴルフ)/, "ゴルフ場利用税"], [/入湯税/, "入湯税"]], "租税公課");
       case "研修費": return "セミナー参加費";
       case "修繕費": return "修理代";
       case "損害保険料": return "保険料";
@@ -373,13 +375,17 @@
 
   // Item lines between the header and the 小計/合計 block: "Chicken MOMO ×1", "おにぎり ×2" …
   const ITEM_STOP = /(小\s*計|小计|合\s*計|合计|総\s*計|總\s*計|お?買\s*上|お会計|ご?請求|SUB\s*TOTAL|TOTAL|お預|お釣|対象|消費税|内税|外税)/i;
-  const ITEM_SKIP = /(領\s*収|レシート|RECEIPT|TEL|電話|〒|登録番号|レジ|担当|取引|No[.:]|伝票|ご利用|ありがとう|お待ち|またの|お越し|営業時間|店|様|^\s*\d+\s*[/.-]\s*\d+|品目|数量|金額|単価|発行日|お支払|支払方法|カード|現金)/i;
+  const ITEM_SKIP = /(領\s*収|レシート|RECEIPT|TEL|電話|〒|登録番号|レジ|担当|取引|No[.:]|伝票|ご利用|ありがとう|お待ち|またの|お越し|営業時間|店|様|^\s*\d+\s*[/.-]\s*\d+|品目|数量|金額|単価|発行日|お支払|支払方法|カード|現金|明細|控え?$)/i;
   const DATE_LINE = /((?<!\d)(20\d{2}|令和\s*\d{1,2}|R\s*\d{1,2})\s*[^\d\n]{1,3}\s*\d{1,2}\s*[^\d\n]{1,3}\s*\d{1,2}|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2})/i;
   function cleanName(l) {
     let n = l.replace(/[¥\\￥$]\s*[\d,.\s]*\d|\d[\d,]*\s*円|\d+\.\d{1,2}|[×xX＊*]\s*\d+|\d+\s*(?:点|個|コ|本|枚|杯|人前|名)|[※★◆●○■□()（）\[\]{}|<>~=_]/g, " ")
       .replace(/(^|\s)\d{1,4}(?=\s|$)/g, " ").replace(/\s+/g, " ").trim();
     // OCR junk: drop trailing 1–2 letter Latin fragments ("Butter MOMO ua" → "Butter MOMO")
     n = n.replace(/(\s+[A-Za-z]{1,2})+$/, "").trim();
+    // table columns after the name (department code, category, 内/外 tax marks): drop short trailing tokens
+    if ((n.match(/[\u3040-\u30ff\u4e00-\u9fff]/g) || []).length >= 3) {
+      let prev; do { prev = n; n = n.replace(/\s+(?:[A-Za-z]{1,3}|[\u3040-\u30ff\u4e00-\u9fff]|[ー一_\-]+)$/, "").trim(); } while (n !== prev);
+    }
     return n;
   }
   function plausibleName(n) {
@@ -389,7 +395,7 @@
     const latin = (compact.match(/[A-Za-z]/g) || []).length;
     if ((cjk + latin) / compact.length < (cjk >= 2 ? 0.5 : 0.7)) return false;
     if (cjk < 2 && cjk + latin < 3) return false; // "j 点", "AE"…
-    if (/[%％]|税|計|預|釣|点数|合算|対象/.test(n)) return false;          // summary lines, not items
+    if (/[%％]|計|預|釣|点数|合算|対象/.test(n) || (/税/.test(n) && !/(利用税|入湯税|宿泊税)/.test(n))) return false; // summary lines, not items
     if (/^[ーィッャュョァゥェォ、。・ヽ]/.test(n)) return false;            // OCR fragments
     if (!cjk && !n.split(/\s+/).some((w) => w.length >= 4 && /[aeiouy]/i.test(w))) return false; // "LAR", "Hi HI OFA"
     if (!cjk && !/[A-Za-z]{3,}/.test(n)) return false; // Latin needs a real word
@@ -401,6 +407,7 @@
     const vals = [];
     let m; const re = /(?:[¥\\￥$]\s*(\d{1,3}(?:[,.]\s?\d{3})+|\d+)(?:\.\d{1,2})?)|(?:(\d{1,3}(?:,\d{3})+|\d+)\s*円)|(?:(?<![\d.])(\d{1,3}(?:,\d{3})+)(?![\d]))/g;
     while ((m = re.exec(x))) { const v = toInt(m[1] || m[2] || m[3]); if (v >= 10) vals.push(v); }
+    if (!vals.length) { const e = x.match(/\s(\d{1,3}\.\d{3})\s*$/); if (e) vals.push(toInt(e[1].replace(".", ""))); }
     if (!vals.length) { const e = x.match(/\s(\d{2,7})(?:\.\d{1,2})?\s*$/); if (e && +e[1] >= 10) vals.push(+e[1]); }
     return vals.length ? Math.max(...vals) : 0;
   }
@@ -436,7 +443,7 @@
         const nx = lines[i + 1].trim();
         if (!nameOf(nx) && !ITEM_STOP.test(nx)) { p = priceOf(nx); if (p) { qty = qty || qtyOf(nx); reduced = reduced || REDUCED_MARK.test(nx); i++; } }
       }
-      if (!p) continue; // no price → not a purchased item
+      if (!p || (total && p > total)) continue; // no price → not a purchased item
       out.push({ name, label: name + (qty ? "×" + qty : ""), qty: qty || 1, price: p, reduced });
       sum += p;
     }
@@ -446,7 +453,8 @@
   // ---------- one receipt, several accounts ----------
   // What a single item is, regardless of the shop. null = nothing specific (follows the receipt's account).
   const ITEM_ACCOUNT_RULES = [
-    [/(収入印紙|印紙)/, "租税公課"],
+    [/(収入印紙|印紙|利用税|入湯税)/, "租税公課"],
+    [/([プブフ]レー代|プレイ代|プレーフィ|グリーンフィ|ラウンド|練習場|練習ボール|キャディ|ゴルフ|GOLF|レンタルクラブ)/i, "接待交際費"],
     [/(切手|はがき|ハガキ|葉書|レターパック|郵便|速達|書留|STAMP|POSTAGE)/i, "通信費"],
     [/(宅急便|宅配便|ゆうパック|ゆうパケット|送料|配送料|クリックポスト|SHIPPING)/i, "荷造運賃"],
     [/(手数料|FEE\b)/i, "支払手数料"],
@@ -458,7 +466,7 @@
   ];
   const FOOD = /(定食|丼|ラーメン|そば|蕎麦|うどん|カレー|パスタ|ピザ|寿司|焼き?鳥|餃子|ランチ|ディナー|コース|前菜|サラダ|スープ|ステーキ|ハンバーグ|天ぷら|刺身|おにぎり|弁当|サンド|パン|ケーキ|菓子|チョコ|アイス|ビール|ハイボール|サワー|ワイン|日本酒|焼酎|コーヒー|珈琲|ラテ|紅茶|お茶|緑茶|茶|水|ジュース|コーラ|飲料|ドリンク|CHICKEN|LAMB|BEEF|PORK|FISH|SALAD|SOUP|CURRY|NOODLE|RICE|PASTA|PIZZA|BURGER|SANDWICH|COFFEE|LATTE|TEA|BEER|WINE|WATER|JUICE|MOMO)/i;
   // 不課税・非課税 items: stamps, revenue stamps, postcards
-  const NONTAX_ITEM = /(収入印紙|印紙|切手|はがき|ハガキ|葉書|レターパック)/;
+  const NONTAX_ITEM = /(収入印紙|印紙|切手|はがき|ハガキ|葉書|レターパック|利用税|入湯税)/;
   function itemAccount(name) {
     for (const [re, acc] of ITEM_ACCOUNT_RULES) if (re.test(name)) return acc;
     if (FOOD.test(name)) return "food";
@@ -494,7 +502,8 @@
       const g = groups.get(acc);
       g.list.push(d.label); g.names.push(d.name); g.w += d.price;
       if (NONTAX_ITEM.test(d.name)) g.w0 += d.price; else if (d.reduced) g.w8 += d.price; else g.w10 += d.price;
-      if (hint && !g.hint) g.hint = hint;
+      if (!hint && acc === "接待交際費" && /([プブフ]レー代|プレイ|ゴルフ|GOLF|練習場|ラウンド|キャディ)/i.test(d.name)) hint = "golf";
+      if (hint && (!g.hint || hint === "golf")) g.hint = hint;
     }
     if (groups.size < 2) return [];
     const G = [...groups.values()].sort((x, y) => y.w - x.w);
@@ -505,6 +514,23 @@
       account: g.account, items: summaryFor(g.account, g.names.join(" ")), item_list: g.list,
       amount_10: p10[i], amount_8: p8[i], amount_other: p0[i], hint: g.hint || (/^(会議費|接待交際費)$/.test(g.account) ? "meal" : ""),
     }));
+  }
+  // Put item rows on a parse result: item list, 不課税 items moved out of the 10% amount, per-account lines.
+  function itemsExplain(details, total) {
+    const sum = (details || []).reduce((s, d) => s + d.price, 0);
+    return details && details.length >= 2 && total && sum >= total * 0.5 && sum <= total * 1.6;
+  }
+  function applyItems(r, details) {
+    const out = { ...r, item_details: details || [], item_list: (details || []).map((d) => d.label) };
+    if (out.total && itemsExplain(details, out.total)) {
+      const nontax = details.filter((d) => NONTAX_ITEM.test(d.name)).reduce((s, d) => s + d.price, 0);
+      const shift = Math.min(nontax - out.amount_other, out.amount_10);
+      if (shift > 0) { out.amount_10 -= shift; out.amount_other += shift; } // ゴルフ場利用税, 切手, 印紙 printed as items
+    }
+    const split = splitByAccount({ details, storeAccount: out.store_account, total: out.total, a10: out.amount_10, a8: out.amount_8, other: out.amount_other });
+    out.lines = split;
+    out.account = split.length ? split[0].account : out.base_account || out.account;
+    return out;
   }
   // Store-level account from the shop / company name only (null when the name says nothing).
   function storeAccountOf(name) {
@@ -549,21 +575,22 @@
     const found = [total > 0, !!date, !!findInvoiceNo(text)].filter(Boolean).length;
     const head = store + " " + vendor + " " + lines.slice(0, 5).join(" ");
     const acc = guessAccount(head, text);
+    if (GOLF.test(text)) acc.hint = "golf";
     const details = extractItemDetails(lines, store, total);
-    const split = splitByAccount({ details, storeAccount: storeAccountOf(head) || (acc.hint === "meal" ? acc.account : null), total, a10, a8, other });
-    return {
+    const storeAcc = storeAccountOf(head) || (GOLF.test(text) ? "接待交際費" : null) || (acc.hint === "meal" ? acc.account : null);
+    const res = {
       date: date || null,
       vendor, store, company, total_score: totalScore,
       invoice_no: findInvoiceNo(text) || null,
-      items: summaryFor(acc.account, text), item_list: details.map((d) => d.label),
-      lines: split,
+      items: summaryFor(acc.account, text), item_list: [], lines: [], item_details: [], store_account: storeAcc,
       amount_10: a10, amount_8: a8, amount_other: other, total,
       payment: guessPayment(text),
-      account: split.length ? split[0].account : acc.account, hint: acc.hint,
+      account: acc.account, base_account: acc.account, hint: acc.hint,
       currency: "JPY", language: lang,
       confidence: found >= 2 ? "medium" : "low",
       notes: "",
     };
+    return applyItems(res, details);
   }
 
   // ---------- OCR ----------
@@ -583,6 +610,7 @@
         await loadScript(TESSERACT_SRC);
         const w = await root.Tesseract.createWorker(langs, 1, { logger: (m) => progressCb && progressCb(m) });
         await w.setParameters({ preserve_interword_spaces: "1" });
+        w.psm = "";
         return w;
       })().catch((e) => { delete workers[langs]; throw e; });
     }
@@ -653,6 +681,15 @@
     } finally { URL.revokeObjectURL(url); }
   }
   const cleanText = (t) => (t || "").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, ""); // drop OCR spaces between CJK chars
+  // psm "3" = automatic page layout (best for headers, totals, company lines);
+  // psm "6" = one block of rows (keeps item tables with wide columns on one line each)
+  async function recognize(langs, canvas, psm) {
+    const w = await getWorker(langs);
+    if (w.psm !== psm) { await w.setParameters({ tessedit_pageseg_mode: psm }); w.psm = psm; }
+    return cleanText((await w.recognize(canvas)).data.text);
+  }
+  // Receipt has a total and an item table (商品/単価/数量…) but no usable item rows were read
+  const wantsTableRead = (r) => r.currency === "JPY" && !!r.total && !itemsExplain(r.item_details, r.total) && /(単価|数量|商品|品名|品目|明細|金額|QTY|PRICE)/i.test(r.raw_text || "");
   async function readReceipt(blob, opts) {
     progressCb = opts && opts.onProgress;
     const src = (opts && opts.original) || blob;
@@ -660,11 +697,11 @@
     const read = async (canvas) => {
       // Japanese + English covers almost every receipt issued in Japan; re-read with the right models
       // when the receipt is Chinese or English.
-      let text = cleanText((await (await getWorker("jpn+eng")).recognize(canvas)).data.text);
+      let text = await recognize("jpn+eng", canvas, "3");
       const lang = scriptOf(text);
       if (PASS2[lang]) {
         if (opts && opts.onLanguage) opts.onLanguage(lang);
-        try { text = cleanText((await (await getWorker(PASS2[lang])).recognize(canvas)).data.text); } catch (e) { /* keep first text */ }
+        try { text = await recognize(PASS2[lang], canvas, "3"); } catch (e) { /* keep first text */ }
       }
       const r = parseReceiptText(text, { ...(opts || {}), lang });
       r.raw_text = text;
@@ -678,6 +715,17 @@
         const r2 = await read(await prep("full"));
         r = { ...mergeResults(r, r2), raw_text: r.raw_text + "\n" + r2.raw_text };
       } catch (e) { /* keep the first result */ }
+    }
+    // Item table read row by row, used only for the items (date, total and company stay from the reads above)
+    if (wantsTableRead(r)) {
+      if (opts && opts.onTablePass) opts.onTablePass();
+      try {
+        const text = await recognize("jpn+eng", await prep("full"), "6");
+        const rt = parseReceiptText(text, { ...(opts || {}), lang: "ja" });
+        const rows = extractItemDetails(text.split("\n").map((l) => l.trim()).filter(Boolean), r.store || "", r.total);
+        if (itemsExplain(rows, r.total) || rows.length > (r.item_details || []).length)
+          r = { ...applyItems({ ...r, store_account: r.store_account || rt.store_account }, rows), raw_text: r.raw_text + "\n" + text };
+      } catch (e) { /* keep what we have */ }
     }
     return r;
   }
@@ -693,8 +741,13 @@
     if (!out.store && b.store) out.store = b.store;
     if (!a.invoice_no && b.invoice_no) out.invoice_no = b.invoice_no;
     if ((!a.item_list || !a.item_list.length) && b.item_list && b.item_list.length) out.item_list = b.item_list;
-    // per-account lines must match the chosen amounts: take them from the same read as the total
-    out.lines = out.total === a.total && out.amount_8 === a.amount_8 ? (a.lines && a.lines.length ? a.lines : (b.total === a.total && b.amount_8 === a.amount_8 ? b.lines || [] : [])) : (b.lines || []);
+    // re-split with the merged amounts, using whichever read found the more useful item rows
+    const da = a.item_details || [], db = b.item_details || [];
+    const pickB = !itemsExplain(da, out.total) && (itemsExplain(db, out.total) || db.length > da.length);
+    if (out.currency === "JPY" && out.total) {
+      const base = { ...out, amount_10: out.amount_10, store_account: a.store_account || b.store_account };
+      Object.assign(out, applyItems(base, pickB ? db : da));
+    }
     if (a.payment === "unknown" && b.payment !== "unknown") out.payment = b.payment;
     if (!a.foreign_total && b.foreign_total) out.foreign_total = b.foreign_total;
     const found = [out.date, out.total || out.foreign_total, out.company].filter(Boolean).length;
@@ -702,7 +755,7 @@
     return out;
   }
 
-  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount };
+  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount, applyItems, itemsExplain, wantsTableRead };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);
