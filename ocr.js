@@ -353,7 +353,7 @@
     const t = String(text || "");
     const by = (pairs, dflt) => { for (const [re, label] of pairs) if (re.test(t)) return label; return dflt; };
     switch (account) {
-      case "会議費": return by([[/(コーヒー|珈琲|カフェ|COFFEE|CAFE|ラテ|紅茶)/i, "打合せ喫茶代"]], "打合せ飲食代");
+      case "会議費": return "○○社担当者との打合せ・会食";
       case "接待交際費": return by([[/([プブフ]レー代|プレイ|ゴルフ|GOLF|練習場|ラウンド|グリーンフィ|カントリークラブ)/i, "ゴルフプレー代"], [/(贈答|ギフト|お中元|お歳暮|花束|手土産)/, "贈答品代"], [/(慶弔|香典|祝儀)/, "慶弔費"]], "接待飲食代");
       case "旅費交通費": return by([[/タクシー|TAXI|運賃/i, "タクシー代"], [/新幹線/, "新幹線代"], [/(航空|AIR|ANA|JAL|PEACH)/i, "航空券代"], [/(ホテル|HOTEL|宿泊|旅館)/i, "宿泊費"], [/(駐車|パーキング|PARKING)/i, "駐車場代"], [/(ガソリン|ENEOS|出光|コスモ)/i, "ガソリン代"], [/(高速|ETC)/i, "高速道路代"], [/(JR|鉄道|電車|SUICA|PASMO|ICOCA|乗車券|定期)/i, "電車代"], [/バス/, "バス代"]], "交通費");
       case "通信費": return by([[/(切手|はがき|ハガキ|レターパック|郵便|ゆうパック)/, "郵送料"], [/(携帯|スマホ|docomo|ドコモ|softbank|楽天モバイル|KDDI)/i, "携帯電話料金"], [/(光回線|インターネット|プロバイダ|Wi-?Fi)/i, "インターネット料金"], [/(サーバー|ドメイン|XSERVER|さくら|AWS)/i, "サーバー・ドメイン代"]], /(月額|年額|サブスク|SUBSCRIPTION|ADOBE|GOOGLE|MICROSOFT|CHATGPT|OPENAI|CLAUDE|CANVA|ZOOM|SLACK|NOTION|DROPBOX|FIGMA)/i.test(t) ? "ソフトウェア利用料" : "通信費");

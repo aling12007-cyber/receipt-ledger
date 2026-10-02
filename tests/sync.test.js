@@ -1,4 +1,4 @@
-// Sync (engine/sync.js): edits of old rows are corrected by reversal; deleted rows are removed from the journal for good.
+// Sync (engine/sync.js): an edited row replaces its old entry (no reversal); deleted rows are removed from the journal for good.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { load } from "./helpers/load.js";
@@ -30,21 +30,51 @@ test("new rows are posted; a second run changes nothing", () => {
   check(f.db, rows);
 });
 
-test("an edited row: the old entry is reversed and the corrected one posted", () => {
+test("an edited row overwrites: the old entry is gone, no reversal, only the new version", () => {
   const f = fakeDb();
   f.step([row("a", 1100)]);
+  const old = f.db.entries[0].id;
   const p = f.step([row("a", 3300)]);
   assert.deepEqual(p.counts, { added: 0, changed: 1, removed: 0, unchanged: 0 });
-  assert.deepEqual(f.db.entries.map((e) => e.kind), ["normal", "reversal", "normal"]);
-  assert.equal(f.db.entries[1].reverses, f.db.entries[0].id);
+  assert.deepEqual(f.db.entries.map((e) => e.kind), ["normal"]);
+  assert.notEqual(f.db.entries[0].id, old);
+  assert.deepEqual(f.db.map.map((m) => m.legacy_id), ["a"]);
   check(f.db, [row("a", 3300)]);
   assert.deepEqual(f.step([row("a", 3300)]).counts.unchanged, 1);
 });
 
-test("edit back and forth never collides with an earlier correction", () => {
+test("changing the account: the old account disappears from the books", () => {
+  const f = fakeDb();
+  f.step([row("a", 1100)]);
+  f.step([row("a", 1100, { debit: "会議費" })]);
+  const accts = f.db.entries.flatMap((e) => e.lines.map((l) => l.account));
+  assert.ok(!accts.includes("消耗品費"));
+  assert.ok(accts.includes("会議費"));
+});
+
+test("edit back and forth never collides and leaves one entry", () => {
   const f = fakeDb();
   for (const amt of [1100, 2200, 1100, 2200, 1100]) { f.step([row("a", amt)]); check(f.db, [row("a", amt)]); }
-  assert.equal(f.db.entries.filter((e) => e.kind === "reversal").length, 4);
+  assert.equal(f.db.entries.length, 1);
+});
+
+test("reversal pairs left by earlier versions are cleaned up on the next sync", () => {
+  const f = fakeDb();
+  f.step([row("a", 1100)]);
+  const old = f.db.entries[0];
+  // what the old sync left behind: a reversal of the first version and a corrected entry with a suffixed key
+  f.db.entries.push({ id: "rev1", date: old.date, kind: "reversal", reverses: old.id, source: "migrated", status: "posted", lines: old.lines.map((l) => ({ ...l, dr: l.cr, cr: l.dr })) });
+  f.db.map.push({ legacy_id: "rev:" + old.id, journal_entry_id: "rev1" });
+  const cur = Sync.plan([row("a", 3300)], {}, { entries: [], map: [] }, deps).target.entries[0];
+  f.db.entries.push({ ...cur, id: "c1", status: "posted" });
+  f.db.map.push({ legacy_id: "a#x.1", journal_entry_id: "c1" });
+  const p = f.step([row("a", 3300)]);
+  assert.equal(p.counts.changed, 1);
+  assert.equal(f.db.entries.length, 1);
+  assert.ok(f.db.entries.every((e) => e.kind !== "reversal"));
+  assert.deepEqual(f.db.map.map((m) => m.legacy_id), ["a"]);
+  check(f.db, [row("a", 3300)]);
+  assert.equal(f.step([row("a", 3300)]).counts.unchanged, 1);
 });
 
 test("a deleted row disappears from the journal: no reversal, nothing left", () => {
@@ -56,11 +86,11 @@ test("a deleted row disappears from the journal: no reversal, nothing left", () 
   check(f.db, [row("b", 2200)]);
 });
 
-test("a row edited and then deleted: the old version, its reversal and the correction all go", () => {
+test("a row edited and then deleted: nothing of it is left", () => {
   const f = fakeDb();
   f.step([row("a", 1100), row("b", 2200)]);
   f.step([row("a", 3300), row("b", 2200)]);
-  assert.equal(f.db.entries.length, 4);                       // a, reversal of a, corrected a, b
+  assert.equal(f.db.entries.length, 2);
   f.step([row("b", 2200)]);
   assert.deepEqual(f.db.entries.map((e) => e.legacy_ids[0]), ["b"]);
   assert.equal(f.db.map.length, 1);

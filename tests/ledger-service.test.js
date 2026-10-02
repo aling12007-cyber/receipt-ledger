@@ -57,7 +57,7 @@ test("an invalid entry never reaches the database", async () => {
   assert.equal(sb.db.calls, 0);
 });
 
-test("correction = reversal + corrected entry; the original stays", async () => {
+test("correction overwrites: the old entry is deleted, only the corrected one remains", async () => {
   const sb = fakeSupabase(), svc = LedgerService.create(sb, { uuid });
   const first = Journal.fromQuickEntry({ date: "2026-10-01", amount: 8800, account: "通信費", payment: "bank", bizRatio: 60 }).entry;
   const { id } = await svc.post(first, { key: "phone" });
@@ -66,9 +66,9 @@ test("correction = reversal + corrected entry; the original stays", async () => 
   const fixed = Journal.fromQuickEntry({ date: "2026-10-01", amount: 8800, account: "通信費", payment: "bank", bizRatio: 50 }).entry;
   await svc.correct(posted, fixed);
   const all = await svc.list(2026);
-  assert.deepEqual(all.map((e) => e.kind), ["compound", "reversal", "compound"]); // 家事按分 adds a 事業主貸 line
+  assert.deepEqual(all.map((e) => e.kind), ["compound"]); // 家事按分 adds a 事業主貸 line
+  assert.notEqual(all[0].id, posted.id);
   assert.deepEqual(Journal.balances(all), Journal.balances([fixed]));
-  assert.equal(all[1].reverses, posted.id, "the reversal names the entry it cancels (the database requires it)");
 });
 
 test("delete removes an entry permanently, together with its reversal", async () => {

@@ -24,7 +24,7 @@ fs.mkdirSync(rel(".check"), { recursive: true });
 fs.writeFileSync(rel(".check/index.inline.js"), inline.join("\n;\n"));
 
 // 3) modules parse (browser UMD files as scripts, ES modules via node --check semantics)
-const files = ["books.js", "filing.js", "ocr.js", "imports.js", ...fs.readdirSync(rel("engine")).filter((f) => f.endsWith(".js")).map((f) => "engine/" + f)];
+const files = ["books.js", "filing.js", "ocr.js", "imports.js", "tips.js", ...fs.readdirSync(rel("engine")).filter((f) => f.endsWith(".js")).map((f) => "engine/" + f)];
 for (const f of files) { try { new vm.Script(fs.readFileSync(rel(f), "utf8"), { filename: f }); } catch (e) { errors.push(`${f}: ${e.message}`); } }
 
 // 4) manifest

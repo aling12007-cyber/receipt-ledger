@@ -71,11 +71,11 @@
     async function reverse(entry, date) {
       return post(Journal.reverse(entry, date), { key: "reverse:" + entry.id, source: "manual" });
     }
-    /** 訂正: reversal of the old entry, then the corrected one. @param {any} old @param {any} fixed */
+    /** 訂正 overwrites: the old entry is deleted for good, then the corrected one posted. @param {any} old @param {any} fixed */
     async function correct(old, fixed) {
-      const r = await reverse(old);
       const p = await post(fixed, { key: "correct:" + old.id });
-      return { reversal: r, entry: p };
+      const r = await remove(old);
+      return { removed: r, entry: p };
     }
 
     /** Delete an entry permanently (with its reversal pair); returns the storage paths of documents that went with it. @param {{ id: string }} entry */

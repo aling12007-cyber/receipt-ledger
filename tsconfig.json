@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["types/**/*.d.ts", "books.js", "filing.js", "ocr.js", "imports.js", "engine/**/*.js"]
+  "include": ["types/**/*.d.ts", "books.js", "filing.js", "ocr.js", "imports.js", "tips.js", "engine/**/*.js"]
 }
