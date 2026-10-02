@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#23467A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<title>Receipt Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+/* Layout: one ledger column (max 980px) — sticky tab bar, scan queue as cards, journal as ruled table. Indigo (藍) for action, vermilion (朱) only for the 印 stamp + warnings. */
+:root{
+  --paper:#EEF1F4; --sheet:#FFFFFF; --ink:#18212C; --muted:#5A6676; --rule:#D3DAE2; --rule-strong:#AEB9C6;
+  --ai:#23467A; --ai-soft:#E3EAF4; --shu:#C2412A; --shu-soft:#F7E6E2; --ok:#2A7A57; --ok-soft:#E1F1E9; --warn:#9A6A0B; --warn-soft:#F6EED9;
+  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Hiragino Sans","Microsoft JhengHei",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11151B; --sheet:#19202A; --ink:#E4E9F0; --muted:#94A1B2; --rule:#2B3440; --rule-strong:#44505F;
+  --ai:#86AAE2; --ai-soft:#1E2B3E; --shu:#E9806A; --shu-soft:#3A2420; --ok:#62C495; --ok-soft:#18332A; --warn:#E3B65A; --warn-soft:#33291A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#11151B; --sheet:#19202A; --ink:#E4E9F0; --muted:#94A1B2; --rule:#2B3440; --rule-strong:#44505F;
+  --ai:#86AAE2; --ai-soft:#1E2B3E; --shu:#E9806A; --shu-soft:#3A2420; --ok:#62C495; --ok-soft:#18332A; --warn:#E3B65A; --warn-soft:#33291A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:20px 64px}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:1.6rem}
+h2{font-size:1.2rem}
+h3{font-size:1rem}
+.eyebrow{font-size:.72rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.muted{color:var(--muted)}
+.small{font-size:.82rem}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.stamp{width:44px;height:44px;border:2px solid var(--shu);color:var(--shu);border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:1.05rem;transform:rotate(-8deg);flex:none}
+.yearpick{display:flex;align-items:center;gap:8px}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);display:flex;gap:4px;margin-block:18px 16px;border-bottom:1px solid var(--rule-strong);overflow-x:auto}
+nav.tabs button{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:500;padding:10px 14px;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ai)}
+nav.tabs button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
+
+.banner{border:1px solid var(--rule-strong);background:var(--sheet);border-radius:var(--r);padding:12px 14px;margin-bottom:14px}
+.banner.warn{border-color:var(--warn);background:var(--warn-soft)}
+.banner.err{border-color:var(--shu);background:var(--shu-soft)}
+
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:var(--r)}
+.pad{padding:16px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+
+.btn{appearance:none;font:inherit;font-weight:500;border:1px solid var(--rule-strong);background:var(--sheet);color:var(--ink);border-radius:var(--r);padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:40px}
+.btn:hover{border-color:var(--ai)}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.drop:focus-within{outline:2px solid var(--ai);outline-offset:2px}
+.btn.primary{background:var(--ai);border-color:var(--ai);color:var(--sheet)}
+.btn.danger{color:var(--shu);border-color:var(--shu)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ai)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;border:2px dashed var(--rule-strong);border-radius:var(--r);padding:28px 16px;background:var(--sheet);cursor:pointer}
+.drop.over{border-color:var(--ai);background:var(--ai-soft)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop .big{font-family:var(--f-display);font-size:1.15rem;font-weight:700}
+.cam{width:46px;height:46px;color:var(--ai)}
+
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted);min-width:0}
+input,select,textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--paper);border:1px solid var(--rule-strong);border-radius:5px;padding:8px 10px;width:100%;min-width:0}
+input.num{text-align:right}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.grid .span2{grid-column:span 2}
+@media (max-width:420px){.grid .span2{grid-column:auto}}
+
+.qcard{display:grid;grid-template-columns:160px minmax(0,1fr);gap:16px;padding:16px;border-top:1px solid var(--rule)}
+.qcard:first-child{border-top:0}
+@media (max-width:640px){.qcard{grid-template-columns:minmax(0,1fr)}}
+.thumb{width:100%;max-width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:5px;border:1px solid var(--rule);background:var(--paper);cursor:zoom-in}
+.status{font-size:.82rem;display:flex;align-items:center;gap:8px}
+.spinner{width:14px;height:14px;border:2px solid var(--rule-strong);border-top-color:var(--ai);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:500;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap;line-height:1.6}
+.chip.ok{color:var(--ok);background:var(--ok-soft)}
+.chip.no{color:var(--warn);background:var(--warn-soft)}
+.chip.inc{color:var(--ai);background:var(--ai-soft)}
+.chip.low{color:var(--shu);background:var(--shu-soft)}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:.76rem;letter-spacing:.04em;border-bottom:1px solid var(--rule-strong);white-space:nowrap;background:var(--sheet)}
+td.r,th.r{text-align:right}
+tbody tr.clickable{cursor:pointer}
+tbody tr.clickable:hover{background:var(--ai-soft)}
+tr.sub td{border-bottom-style:dashed}
+tfoot td{font-weight:700;border-top:2px solid var(--rule-strong);border-bottom:0}
+.dr{color:var(--ink)} .cr{color:var(--muted)}
+.ex td{color:var(--muted);font-style:italic}
+
+.filters{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));padding:14px 16px;border-bottom:1px solid var(--rule)}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.kpi{background:var(--sheet);padding:14px 16px}
+.kpi .v{font-family:var(--f-num);font-size:1.35rem;font-weight:500}
+.kpi.neg .v{color:var(--shu)}
+
+.bars{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;align-items:end;height:140px;padding-top:8px}
+.bar{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-end;height:100%;gap:2px}
+.bar i{display:block;border-radius:2px 2px 0 0;min-height:1px}
+.bar i.s{background:var(--ai)} .bar i.e{background:var(--shu);opacity:.75}
+.barlabels{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;font-size:.7rem;color:var(--muted);text-align:center;font-family:var(--f-num)}
+.legend{display:flex;gap:14px;font-size:.78rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px;background:var(--c)}
+
+dialog{border:1px solid var(--rule-strong);border-radius:var(--r);background:var(--sheet);color:var(--ink);padding:0;width:min(720px,calc(100vw - 32px));max-height:calc(100vh - 48px)}
+dialog::backdrop{background:rgba(10,15,25,.55)}
+dialog .hd{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--rule)}
+dialog .bd{padding:16px;overflow:auto}
+#imgView img{display:block;width:100%;max-height:80vh;object-fit:contain}
+
+.preview-lines{font-size:.82rem;border:1px dashed var(--rule-strong);border-radius:5px;padding:8px 10px;background:var(--paper)}
+.preview-lines div{display:flex;justify-content:space-between;gap:10px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--sheet);padding:10px 16px;border-radius:var(--r);font-size:.9rem;z-index:20;max-width:calc(100vw - 32px)}
+.notes li{margin-bottom:6px}
+.confirm-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.85rem}
+</style>
+<style>
+html[lang="ja"]{--f-body:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;--f-display:"Noto Serif JP","Hiragino Mincho ProN",serif}
+html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
+.langsw{display:inline-flex;border:1px solid var(--rule-strong);border-radius:var(--r);overflow:hidden;background:var(--sheet)}
+.langsw button{appearance:none;border:0;background:none;font:inherit;font-size:.82rem;color:var(--muted);padding:6px 12px;cursor:pointer;min-height:34px}
+.langsw button+button{border-left:1px solid var(--rule)}
+.langsw button[aria-pressed="true"]{background:var(--ai);color:var(--sheet)}
+.langsw button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.jp{display:block;font-size:.72rem;color:var(--muted)}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</body>
+</html>
+</head>
+<body>
+<div class="wrap" id="authView" hidden>
+  <div class="sheet pad stack" style="max-width:420px;margin:8vh auto 0">
+    <div class="brand"><div class="stamp" aria-hidden="true">帳</div><div><div class="eyebrow" data-i18n="eyebrow"></div><h1>Receipt Ledger</h1></div></div>
+    <div class="langsw" role="group" aria-label="Language" style="align-self:flex-start">
+      <button data-lang="en" aria-pressed="false">EN</button><button data-lang="ja" aria-pressed="false">日本語</button><button data-lang="zh" aria-pressed="false">中文</button>
+    </div>
+    <p class="muted small" style="margin:0" data-i18n="authSub"></p>
+    <form id="authForm" class="stack" novalidate>
+      <label class="f" for="aEmail"><span data-i18n="email"></span><input type="email" id="aEmail" autocomplete="email" required></label>
+      <label class="f" for="aPass"><span data-i18n="password"></span><input type="password" id="aPass" autocomplete="current-password" minlength="8" required></label>
+      <div class="row"><button class="btn primary" type="submit" id="aSubmit" data-i18n="signIn"></button><button class="btn ghost" type="button" id="aToggle" data-i18n="noAcct"></button></div>
+      <p class="small" id="aMsg" style="margin:0"></p>
+    </form>
+  </div>
+</div>
+<div class="wrap" id="appView" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="stamp" aria-hidden="true">帳</div>
+      <div>
+        <div class="eyebrow" data-i18n="eyebrow"></div>
+        <h1 id="bizName">Receipt Ledger</h1>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="langsw" role="group" aria-label="Language">
+        <button data-lang="en" aria-pressed="false">EN</button>
+        <button data-lang="ja" aria-pressed="false">日本語</button>
+        <button data-lang="zh" aria-pressed="false">中文</button>
+      </div>
+      <button class="btn ghost" id="signOut" data-i18n="signOut"></button>
+      <label class="f" for="yearSel"><span data-i18n="yearLabel"></span>
+        <select id="yearSel"></select>
+      </label>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="scan" aria-selected="true" data-i18n="tabScan"></button>
+    <button role="tab" data-tab="journal" aria-selected="false" data-i18n="tabJournal"></button>
+    <button role="tab" data-tab="summary" aria-selected="false" data-i18n="tabSummary"></button>
+    <button role="tab" data-tab="settings" aria-selected="false" data-i18n="tabSettings"></button>
+  </nav>
+
+  <div id="banners"></div>
+
+  <section data-panel="scan" class="stack">
+    <label class="drop" id="drop" for="fileIn">
+      <svg class="cam" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 16h8l4-6h12l4 6h8v24H6z" stroke-linejoin="round"/><circle cx="24" cy="27" r="8"/></svg>
+      <span class="big" data-i18n="dropTitle"></span>
+      <span class="muted small" data-i18n="dropSub"></span>
+      <input type="file" id="fileIn" accept="image/*" capture="environment" multiple>
+    </label>
+    <div class="row">
+      <button class="btn" id="manualExp" data-i18n="manualExp"></button>
+      <button class="btn" id="manualInc" data-i18n="manualInc"></button>
+    </div>
+    <div class="sheet" id="queue" hidden></div>
+    <p class="muted small" data-i18n="queueHint"></p>
+  </section>
+
+  <section data-panel="journal" hidden class="stack">
+    <div class="sheet">
+      <div class="filters">
+        <label class="f" for="fFrom"><span data-i18n="fFrom"></span><input type="date" id="fFrom"></label>
+        <label class="f" for="fTo"><span data-i18n="fTo"></span><input type="date" id="fTo"></label>
+        <label class="f" for="fMin"><span data-i18n="fMin"></span><input type="number" id="fMin" class="num" inputmode="numeric"></label>
+        <label class="f" for="fMax"><span data-i18n="fMax"></span><input type="number" id="fMax" class="num" inputmode="numeric"></label>
+        <label class="f" for="fQ"><span data-i18n="fQ"></span><input type="search" id="fQ" placeholder="Amazon"></label>
+        <label class="f" for="fAcc"><span data-i18n="fAcc"></span><select id="fAcc"></select></label>
+      </div>
+      <div class="row pad" style="justify-content:space-between">
+        <span class="small muted" id="jCount"></span>
+        <button class="btn" id="expJournal" data-i18n="expJournal"></button>
+      </div>
+      <div class="tablewrap">
+        <table id="jTable">
+          <thead><tr><th data-i18n="thDate"></th><th data-i18n="thDr"></th><th class="r" data-i18n="thAmt"></th><th data-i18n="thCr"></th><th class="r" data-i18n="thAmt"></th><th data-i18n="thDesc"></th><th data-i18n="thQual"></th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section data-panel="summary" hidden class="stack">
+    <div class="kpis">
+      <div class="kpi"><div class="eyebrow" data-i18n="kSales"></div><div class="v" id="kSales">¥0</div></div>
+      <div class="kpi"><div class="eyebrow" data-i18n="kExp"></div><div class="v" id="kExp">¥0</div></div>
+      <div class="kpi" id="kIncWrap"><div class="eyebrow" data-i18n="kInc"></div><div class="v" id="kInc">¥0</div></div>
+      <div class="kpi"><div class="eyebrow" id="kAfterLabel"></div><div class="v" id="kAfter">¥0</div></div>
+    </div>
+    <div class="sheet pad stack">
+      <div class="row" style="justify-content:space-between">
+        <h2 data-i18n="monthly"></h2>
+        <div class="legend"><span style="--c:var(--ai)" data-i18n="legSales"></span><span style="--c:var(--shu)" data-i18n="legExp"></span></div>
+      </div>
+      <div class="bars" id="bars"></div>
+      <div class="barlabels"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span></div>
+    </div>
+    <div class="sheet">
+      <div class="row pad" style="justify-content:space-between">
+        <div><h2 data-i18n="byAcc"></h2><p class="small muted" style="margin:0" id="byAccSub"></p></div>
+        <button class="btn" id="expSummary" data-i18n="expSummary"></button>
+      </div>
+      <div class="tablewrap"><table id="accTable"><thead><tr><th data-i18n="thAcc"></th><th class="r" data-i18n="thCount"></th><th class="r" data-i18n="thAmt"></th><th class="r" data-i18n="thShare"></th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+    </div>
+    <div class="sheet pad stack">
+      <h2 data-i18n="ctaxTitle"></h2>
+      <div class="tablewrap"><table id="ctaxTable"><thead><tr><th data-i18n="thClass"></th><th class="r" data-i18n="th10"></th><th class="r" data-i18n="th8"></th></tr></thead><tbody></tbody></table></div>
+      <p class="small muted" id="ctaxNote" style="margin:0"></p>
+    </div>
+  </section>
+
+  <section data-panel="settings" hidden class="stack">
+    <div class="sheet pad stack">
+      <h2 data-i18n="setTitle"></h2>
+      <div class="grid">
+        <label class="f span2" for="sName"><span data-i18n="sName"></span><input id="sName" data-i18n-ph="sNamePh"></label>
+        <label class="f" for="sFiling"><span data-i18n="sFiling"></span><select id="sFiling"></select></label>
+        <label class="f" for="sCtax"><span data-i18n="sCtax"></span><select id="sCtax"></select></label>
+        <label class="f" for="sCash"><span data-i18n="sCash"></span><select id="sCash"></select></label>
+        <label class="f" for="sCard"><span data-i18n="sCard"></span><select id="sCard"></select></label>
+        <label class="f" for="sShoGaku"><span data-i18n="sShoGaku"></span><select id="sShoGaku"></select></label>
+      </div>
+      <label class="f" for="sHint"><span data-i18n="sHint"></span><textarea id="sHint" rows="2" data-i18n-ph="sHintPh"></textarea></label>
+      <div class="row"><button class="btn primary" id="saveSettings" data-i18n="saveSettings"></button><span class="small muted" id="setMsg"></span></div>
+    </div>
+    <div class="sheet pad stack">
+      <h2 data-i18n="lawTitle"></h2>
+      <ul class="notes small" style="margin:0;padding-left:1.2em" id="lawList"></ul>
+      <p class="small muted" style="margin:0" data-i18n="disclaimer"></p>
+    </div>
+  </section>
+</div>
+
+<dialog id="editDlg">
+  <div class="hd"><h3 id="editTitle"></h3><button class="btn ghost" data-close data-i18n="close"></button></div>
+  <div class="bd" id="editBody"></div>
+</dialog>
+<dialog id="imgView">
+  <div class="hd"><h3 data-i18n="receiptImg"></h3><button class="btn ghost" data-close data-i18n="close"></button></div>
+  <div class="bd"><img alt="" id="imgViewImg"></div>
+</dialog>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+// ===== i18n =====
+const I18N={
+en:{authSub:"Sign in to your own ledger. Your receipts and books are stored in your Supabase database.",email:"Email",password:"Password (8+ characters)",signIn:"Sign in",signUp:"Create account",signOut:"Sign out",noAcct:"No account yet? Create one",haveAcct:"Have an account? Sign in",checkEmail:"Check your inbox and open the confirmation link, then sign in.",authErr:"Sign-in failed: ",eServer:"The server could not read the receipt: ",eAuthApi:"Your account isn't allowed to use AI reading. Ask the site owner to add your email.",eCfg:"The site isn't configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY on the server.",eyebrow:"Japanese sole proprietor · 個人事業主",yearLabel:"Tax year (Jan–Dec)",tabScan:"Scan receipts",tabJournal:"Journal",tabSummary:"Summary",tabSettings:"Settings",
+ dropTitle:"Take a photo or choose receipts",dropSub:"Select several at once. AI reads the date, store, amounts, 10% / 8% tax rates and invoice registration number. Nothing is posted until you confirm.",
+ manualExp:"Add an expense manually",manualInc:"Record income (sales)",queueHint:"Confirmed receipts appear in the Journal. Photos are kept with each entry so you can search them later, as the Electronic Bookkeeping Act requires.",
+ fFrom:"Date from",fTo:"Date to",fMin:"Amount min",fMax:"Amount max",fQ:"Vendor / memo",fAcc:"Account",all:"All",expJournal:"Export journal CSV",
+ thDate:"Date",thDr:"Debit",thAmt:"Amount",thCr:"Credit",thDesc:"Description / vendor",thQual:"Invoice",
+ kSales:"Sales",kExp:"Total expenses",kInc:"Net before deduction",kAfterBlue:"After blue-return deduction",kAfterWhite:"Net income (white return)",
+ monthly:"Monthly sales and expenses",legSales:"Sales",legExp:"Expenses",byAcc:"Expenses by account",
+ byAccSubBlue:"Matches page 1 of the Blue Return financial statement (青色申告決算書). Only the business share is counted.",byAccSubWhite:"Matches the Income/Expense statement for white returns (収支内訳書). Only the business share is counted.",
+ expSummary:"Export summary CSV",thAcc:"Account",thCount:"Entries",thShare:"Share",ctaxTitle:"Consumption tax on purchases",thClass:"Type",th10:"10% incl. tax",th8:"8% reduced incl. tax",
+ rowQ:"Qualified invoice",rowN:"No qualified invoice",rowND:"└ deductible under transition rule",
+ ctax_exempt:"You are tax-exempt: no consumption tax return needed. This table is for reference.",ctax_simple:"Simplified taxation: deductible tax uses the deemed purchase rate, so invoices don't affect it. For reference only.",ctax_niwari:"20% special rule: tax due = 20% of sales tax. Purchase receipts don't change it (available to individuals through tax year 2026).",ctax_general:"Standard taxation: purchases without a qualified invoice are 80% deductible until 2026-09-30 and 50% from 2026-10-01 to 2029-09-30. Applied by transaction date above.",
+ setTitle:"Business details",sName:"Trade name (屋号) or your name",sNamePh:"e.g. Lin Design Studio",sFiling:"Return type",sCtax:"Consumption tax status",sCash:"Cash payments are credited to",sCard:"Card / e-money payments are credited to",sShoGaku:"Small-amount exception (under ¥10,000)",
+ sHint:"Notes for the AI (your trade, usual accounts)",sHintPh:"e.g. Freelance web designer. Café meetings → 会議費; books → 新聞図書費.",saveSettings:"Save settings",saved:"Saved",
+ f_blue65:"Blue return – ¥650,000 (e-Tax + double-entry)",f_blue55:"Blue return – ¥550,000",f_blue10:"Blue return – ¥100,000",f_white:"White return (no special deduction)",
+ c_exempt:"Tax-exempt",c_simple:"Simplified taxation",c_niwari:"20% special rule",c_general:"Standard taxation",sg0:"Not applied",sg1:"Applied (base-period sales ≤ ¥100M)",
+ lawTitle:"How this ledger maps to Japanese tax rules",
+ law:["<b>Blue or white return</b>: both work. A blue return gives up to ¥650,000 deduction but needs double-entry books, which this ledger keeps. A white return only needs simple records; switch the return type in Settings and the summary follows the 収支内訳書.","<b>Double-entry, tax-inclusive</b>: each receipt becomes a debit/credit entry. Paid with personal money → credit 事業主借 (owner's contribution). Paid from the business account with a private share → the private part goes to 事業主貸 (owner's drawings).","<b>Business-use ratio (家事按分)</b>: for phone, rent and similar, only the business share is expensed.","<b>Invoice system</b>: a T + 13-digit registration number marks the receipt as qualified. Under standard taxation, non-qualified purchases are 50% deductible from 2026-10-01 to 2029-09-30 (80% before).","<b>Electronic Bookkeeping Act</b>: receipt photos are kept with the books and searchable by date, amount and vendor (the Journal filters). Every edit or deletion is logged in the database (訂正削除履歴). Keep records for 7 years.","Depreciation (assets ¥100,000+), inventory and withholding tax are not calculated here. Supplies of ¥100,000 or more are flagged."],
+ disclaimer:"This tool organises your books. It does not replace a tax accountant. Check accounts and amounts before you file.",
+ close:"Close",receiptImg:"Receipt image",waiting:"Queued",reading:"AI is reading the receipt…",posted:"Posted",lowConf:"Low confidence — check carefully",aiFilled:"Filled by AI — please check",
+ confirm:"Confirm & post",retry:"Read again",remove:"Remove",uploading:"Uploading photo…",photoFail:"Photo not saved ({e}); the entry will still be posted.",
+ date:"Date",vendor:"Vendor (store)",client:"Client",regNo:"Registration no.",items:"Description",a10:"10% items (incl. tax)",a8:"8% reduced (incl. tax)",a0:"Non-taxable",debitExp:"Account (debit)",debitInc:"Deposited to (debit)",credit:"Paid by (credit)",ratio:"Business use %",memo:"Memo",
+ total:"Receipt total",qualified:"Qualified invoice",noReg:"No registration no.",bigSupply:"¥100,000+: may need depreciation",private:"Private share",biz:"Business {n}%",sales:"Sales",qual:"Qualified",nonqual:"Not qualified",receipt:"Receipt",
+ editTitle:"Edit entry",newExp:"Add an expense",newInc:"Record income",post:"Post",saveChanges:"Save changes",viewReceipt:"View receipt",del:"Delete",delQ:"Delete this entry? The receipt image and the change history are kept for your records.",cancel:"Cancel",
+ tPosted:"Posted: {v}",tUpdated:"Updated",tDeleted:"Deleted",errDate:"Enter a transaction date.",errAmt:"Enter an amount.",errStore:"Not connected to storage yet.",saveFail:"Could not save",
+ emptyJ:"No entries yet. These are examples; they'll be replaced once you post your first receipt.",countJ:"{y}: {n} shown of {t}",noMatch:"No entries match these filters.",noExp:"No expenses for {y} yet. They'll be totalled by account here.",expTotal:"Total expenses",
+ ex1:"(example) Tokyo taxi",ex2:"(example) Phone plan · 50% business",ex3:"(example) September web project",
+ bAI:"AI photo reading isn't available in this view. You can still enter receipts by hand. Open this page in claude.ai or the Claude app.",bLogin:"Sign in to claude.ai to save your books. Nothing entered now will be kept.",bId:"Couldn't identify your account, so the books can't be saved.",bRead:"Couldn't load the books: ",
+ noImg:"This view can't send images to the AI. Please enter it by hand.",noAI:"AI reading is off. Please enter it by hand.",eGrant:"You didn't allow AI on this page. Enter by hand, or reload and allow it.",eRate:"Too many AI requests. Try again shortly or enter by hand.",eJson:"The AI reply was malformed. Retry or enter by hand.",eImg:"This image couldn't be read (format or size).",eAI:"AI reading failed: ",
+ noDl:"Downloads aren't available in this view.",exported:"Exported {f}",expFail:"Export failed: ",setLocal:"Not connected to storage; settings apply to this visit only.",
+ era:"Reiwa",csvJ:"journal",csvS:"summary",month:"Month",income:"Income",expense:"Expense"},
+ja:{authSub:"自分の帳簿にログインします。レシートと帳簿はあなたの Supabase データベースに保存されます。",email:"メールアドレス",password:"パスワード（8文字以上）",signIn:"ログイン",signUp:"アカウント作成",signOut:"ログアウト",noAcct:"アカウントを作成",haveAcct:"ログインに戻る",checkEmail:"確認メールのリンクを開いてから、ログインしてください。",authErr:"ログインできませんでした：",eServer:"サーバーで読み取りに失敗しました：",eAuthApi:"このアカウントはAI読取を利用できません。管理者にメールアドレスの追加を依頼してください。",eCfg:"サイトの設定が未完了です。サーバーに SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。",eyebrow:"個人事業主の帳簿",yearLabel:"年分（1月〜12月）",tabScan:"レシート撮影",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
+ dropTitle:"レシートを撮影・選択",dropSub:"複数枚まとめて選べます。AIが取引日・店名・金額・10%／8%税率・登録番号を読み取ります。確認するまで記帳されません。",
+ manualExp:"経費を手入力",manualInc:"売上を記帳",queueHint:"確定したレシートは仕訳帳に入ります。画像も一緒に保存され、電子帳簿保存法の検索要件に対応します。",
+ fFrom:"取引日（から）",fTo:"取引日（まで）",fMin:"金額（下限）",fMax:"金額（上限）",fQ:"取引先・摘要",fAcc:"勘定科目",all:"すべて",expJournal:"仕訳帳をCSV出力",
+ thDate:"日付",thDr:"借方",thAmt:"金額",thCr:"貸方",thDesc:"摘要・取引先",thQual:"適格",
+ kSales:"売上（収入）金額",kExp:"経費合計",kInc:"差引金額（控除前）",kAfterBlue:"青色申告特別控除後",kAfterWhite:"所得金額（白色）",
+ monthly:"月別売上・経費",legSales:"売上",legExp:"経費",byAcc:"経費の科目別集計",
+ byAccSubBlue:"青色申告決算書（一般用）1ページの経費欄に対応。家事按分後の事業分のみ計上。",byAccSubWhite:"収支内訳書（一般用）の経費欄に対応。家事按分後の事業分のみ計上。",
+ expSummary:"集計をCSV出力",thAcc:"勘定科目",thCount:"件数",thShare:"構成比",ctaxTitle:"消費税の仕入集計",thClass:"区分",th10:"10% 税込",th8:"8%（軽減）税込",
+ rowQ:"適格請求書あり",rowN:"適格請求書なし",rowND:"└ 経過措置で控除対象",
+ ctax_exempt:"免税事業者のため消費税の申告は不要です。参考表示です。",ctax_simple:"簡易課税はみなし仕入率で計算するため、インボイスの有無は税額に影響しません。参考表示です。",ctax_niwari:"2割特例：納付税額＝売上税額×20%。仕入のレシートは影響しません（個人は2026年分まで）。",ctax_general:"本則課税：適格請求書のない仕入は2026/9/30まで80%、2026/10/1〜2029/9/30は50%控除。取引日ごとに適用済み。",
+ setTitle:"事業情報",sName:"屋号（または氏名）",sNamePh:"例：林デザイン事務所",sFiling:"申告の種類",sCtax:"消費税",sCash:"現金払いの貸方",sCard:"カード・電子マネー払いの貸方",sShoGaku:"少額特例（1万円未満）",
+ sHint:"AIへの補足（業種・よく使う科目）",sHintPh:"例：Web制作。カフェでの打合せは会議費、書籍は新聞図書費。",saveSettings:"設定を保存",saved:"保存しました",
+ f_blue65:"青色申告 65万円控除（e-Tax＋複式簿記）",f_blue55:"青色申告 55万円控除",f_blue10:"青色申告 10万円控除",f_white:"白色申告",
+ c_exempt:"免税事業者",c_simple:"簡易課税",c_niwari:"2割特例",c_general:"本則課税",sg0:"適用しない",sg1:"適用する（基準期間売上1億円以下）",
+ lawTitle:"日本の税法との対応",
+ law:["<b>青色・白色どちらも対応</b>：青色申告は最大65万円控除ですが複式簿記が必要で、この帳簿はその形式で記帳します。白色申告は簡易な記帳で足ります。設定で申告の種類を切り替えると、集計が収支内訳書の形式になります。","<b>複式簿記・税込経理</b>：レシートごとに借方／貸方の仕訳を作成。個人のお金で払った場合は貸方「事業主借」、事業用口座から払い私用分がある場合は私用分を「事業主貸」にします。","<b>家事按分</b>：携帯代・家賃などは事業割合を設定でき、事業分だけを経費にします。","<b>インボイス制度</b>：T＋13桁の登録番号があれば「適格」。本則課税では、適格でない仕入は2026/10/1〜2029/9/30は50%控除（それ以前は80%）。","<b>電子帳簿保存法</b>：レシート画像を帳簿と一緒に保存し、取引日・金額・取引先で検索できます（仕訳帳の絞り込み）。訂正・削除の履歴はデータベースに自動記録されます。保存期間は原則7年。","減価償却（10万円以上の資産）・棚卸・源泉徴収は別途計算が必要です。10万円以上の消耗品には注意表示が出ます。"],
+ disclaimer:"本ツールは帳簿整理の補助であり、税理士の判断に代わるものではありません。申告前に科目と金額をご確認ください。",
+ close:"閉じる",receiptImg:"レシート画像",waiting:"待機中",reading:"AIがレシートを読み取り中…",posted:"記帳済み",lowConf:"読取精度が低め、要確認",aiFilled:"AIが入力しました。確認してください",
+ confirm:"確定して記帳",retry:"再読取",remove:"削除",uploading:"画像をアップロード中…",photoFail:"画像を保存できませんでした（{e}）。仕訳は記帳します。",
+ date:"取引日",vendor:"取引先（店名）",client:"取引先（顧客）",regNo:"登録番号",items:"摘要（内容）",a10:"10%対象（税込）",a8:"8%軽減（税込）",a0:"不課税・非課税",debitExp:"勘定科目（借方）",debitInc:"借方（入金先）",credit:"支払方法（貸方）",ratio:"事業割合 %",memo:"備考",
+ total:"レシート合計",qualified:"適格請求書",noReg:"登録番号なし",bigSupply:"10万円以上：減価償却の可能性",private:"私用分",biz:"事業 {n}%",sales:"売上",qual:"適格",nonqual:"非適格",receipt:"画像",
+ editTitle:"仕訳を編集",newExp:"経費を手入力",newInc:"売上を記帳",post:"記帳",saveChanges:"変更を保存",viewReceipt:"レシートを見る",del:"削除",delQ:"この仕訳を削除しますか？レシート画像と訂正・削除の履歴は保存されたままです。",cancel:"キャンセル",
+ tPosted:"記帳しました：{v}",tUpdated:"更新しました",tDeleted:"削除しました",errDate:"取引日を入力してください。",errAmt:"金額を入力してください。",errStore:"保存先に接続されていません。",saveFail:"保存できませんでした",
+ emptyJ:"まだ仕訳がありません。以下は例です。最初のレシートを記帳すると置き換わります。",countJ:"{y}年：{n}件表示（全{t}件）",noMatch:"条件に合う仕訳はありません。",noExp:"{y}年の経費はまだありません。記帳すると科目別に集計されます。",expTotal:"経費計",
+ ex1:"（例）東京無線タクシー",ex2:"（例）スマホ月額・事業割合50%",ex3:"（例）9月分 Web制作",
+ bAI:"この画面ではAIによる画像読取を使えません。手入力は可能です。claude.ai または Claude アプリで開いてください。",bLogin:"帳簿を保存するには claude.ai にログインしてください。現在の入力は保存されません。",bId:"ログイン情報を確認できないため保存できません。",bRead:"帳簿を読み込めませんでした：",
+ noImg:"この画面ではAIに画像を送れません。手入力してください。",noAI:"AI読取が無効です。手入力してください。",eGrant:"AIの利用が許可されていません。手入力するか、再読み込みして許可してください。",eRate:"AIの利用が集中しています。少し待つか手入力してください。",eJson:"AIの応答形式が不正です。再読取または手入力してください。",eImg:"この画像を読み取れません（形式またはサイズ）。",eAI:"AI読取に失敗しました：",
+ noDl:"この画面ではダウンロードできません。",exported:"{f} を出力しました",expFail:"出力に失敗しました：",setLocal:"保存先に未接続のため、設定は今回のみ有効です。",
+ era:"令和",csvJ:"仕訳帳",csvS:"科目別集計",month:"月",income:"収入",expense:"経費"},
+zh:{authSub:"登入你自己的帳冊。收據與帳冊存放在你的 Supabase 資料庫。",email:"電子郵件",password:"密碼（8 個字元以上）",signIn:"登入",signUp:"建立帳號",signOut:"登出",noAcct:"還沒有帳號？建立一個",haveAcct:"已有帳號？登入",checkEmail:"請到信箱打開確認連結，再回來登入。",authErr:"登入失敗：",eServer:"伺服器讀取收據失敗：",eAuthApi:"這個帳號不能使用 AI 辨識，請網站管理者把你的 email 加入允許名單。",eCfg:"網站尚未設定完成，請在伺服器設定 SUPABASE_URL 與 SUPABASE_ANON_KEY。",eyebrow:"日本個人事業主帳冊",yearLabel:"年分（1月〜12月）",tabScan:"拍收據",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
+ dropTitle:"拍照或選擇收據",dropSub:"可一次選多張。AI 會讀出日期、店名、金額、10%／8% 稅率與インボイス登録番号，你確認後才入帳。",
+ manualExp:"手動記一筆支出",manualInc:"記一筆收入（売上）",queueHint:"確認入帳的收據會出現在「仕訳帳」，照片一併保存，方便依電子帳簿保存法查詢。",
+ fFrom:"取引日 起",fTo:"取引日 迄",fMin:"金額 下限",fMax:"金額 上限",fQ:"取引先・摘要",fAcc:"勘定科目",all:"全部",expJournal:"匯出仕訳帳 CSV",
+ thDate:"日期",thDr:"借方",thAmt:"金額",thCr:"貸方",thDesc:"摘要・取引先",thQual:"適格",
+ kSales:"売上（收入）金額",kExp:"經費合計",kInc:"差引金額（控除前）",kAfterBlue:"青色申告特別控除後",kAfterWhite:"所得金額（白色）",
+ monthly:"月別売上・經費",legSales:"売上",legExp:"經費",byAcc:"經費科目別集計",
+ byAccSubBlue:"對應青色申告決算書（一般用）第 1 頁經費欄。家事按分後只計入事業部分。",byAccSubWhite:"對應白色申告的収支内訳書經費欄。家事按分後只計入事業部分。",
+ expSummary:"匯出集計 CSV",thAcc:"勘定科目",thCount:"件數",thShare:"構成比",ctaxTitle:"消費稅仕入集計",thClass:"區分",th10:"10% 含稅",th8:"8%（軽減）含稅",
+ rowQ:"有適格請求書",rowN:"無適格請求書",rowND:"└ 經過措置可扣除",
+ ctax_exempt:"你是免税事業者，不需申報消費稅，此表僅供參考。",ctax_simple:"簡易課税依みなし仕入率計算，收據有無インボイス不影響稅額，此表僅供參考。",ctax_niwari:"2割特例：納稅額＝売上消費稅×20%，仕入收據不影響稅額（個人適用至 2026 年分）。",ctax_general:"一般課税：非適格仕入 2026/9/30 前可扣 80%，2026/10/1〜2029/9/30 可扣 50%。上表已依取引日套用。",
+ setTitle:"事業資料",sName:"屋号（或姓名）",sNamePh:"例：林デザイン事務所",sFiling:"申告種類",sCtax:"消費稅身分",sCash:"現金支付記為（貸方）",sCard:"信用卡／電子支付記為（貸方）",sShoGaku:"少額特例（1 萬円未満）",
+ sHint:"給 AI 的補充說明（行業、常用科目）",sHintPh:"例：網頁設計接案。咖啡廳開會記会議費；書籍記新聞図書費。",saveSettings:"儲存設定",saved:"已儲存",
+ f_blue65:"青色申告 65 萬円控除（e-Tax＋複式簿記）",f_blue55:"青色申告 55 萬円控除",f_blue10:"青色申告 10 萬円控除",f_white:"白色申告",
+ c_exempt:"免税事業者",c_simple:"簡易課税",c_niwari:"2割特例",c_general:"一般課税（本則）",sg0:"不適用",sg1:"適用（基準期間売上 1 億円以下）",
+ lawTitle:"這套帳冊怎麼對應日本稅法",
+ law:["<b>青色、白色都適用</b>：青色申告最多可扣 65 萬円，但必須複式簿記，本工具就是用這個格式記帳。白色申告只需簡易記帳；在設定切換申告種類，集計就改為収支内訳書格式。","<b>複式簿記・税込経理</b>：每張收據產生借方／貸方仕訳。用個人的錢付款時貸方記「事業主借」；用事業帳戶付款且有私人部分時，私人部分記「事業主貸」。","<b>家事按分</b>：手機費、房租等可設定事業比例，只把事業部分計入經費。","<b>インボイス制度</b>：讀到 T＋13 碼登録番号即標為「適格」。一般課税下，非適格仕入在 2026/10/1〜2029/9/30 可扣除 50%（之前為 80%）。","<b>電子帳簿保存法</b>：收據照片與帳冊一起保存，可依取引日、金額、取引先檢索（仕訳帳上方篩選）。每次修改或刪除都會自動記錄在資料庫（訂正削除履歴）。保存期間原則 7 年。","減価償却（10 萬円以上資產）、棚卸、源泉徴収需另外計算；10 萬円以上的消耗品會標出提醒。"],
+ disclaimer:"本工具協助整理帳冊，不代替稅理士判斷。申告前請再次確認科目與金額。",
+ close:"關閉",receiptImg:"收據影像",waiting:"排隊中",reading:"AI 正在讀取收據…",posted:"已入帳",lowConf:"辨識信心低，請仔細核對",aiFilled:"AI 已填入，請核對",
+ confirm:"確認入帳",retry:"重新辨識",remove:"移除",uploading:"上傳照片…",photoFail:"照片未能保存（{e}），仍會記帳。",
+ date:"取引日",vendor:"取引先（店名）",client:"取引先（客戶）",regNo:"登録番号",items:"摘要（內容）",a10:"10% 對象（含稅）",a8:"8% 軽減（含稅）",a0:"不課税・非課税",debitExp:"勘定科目（借方）",debitInc:"借方（入金帳戶）",credit:"支付方式（貸方）",ratio:"事業比例 %",memo:"備註",
+ total:"收據合計",qualified:"適格請求書",noReg:"無登録番号",bigSupply:"10 萬円以上：可能需改列減価償却",private:"私用部分",biz:"事業 {n}%",sales:"売上",qual:"適格",nonqual:"非適格",receipt:"收據",
+ editTitle:"編輯仕訳",newExp:"手動記一筆支出",newInc:"記一筆收入",post:"入帳",saveChanges:"儲存變更",viewReceipt:"看收據",del:"刪除",delQ:"確定刪除這筆仕訳？收據影像與修改紀錄仍會保留。",cancel:"取消",
+ tPosted:"已入帳：{v}",tUpdated:"已更新",tDeleted:"已刪除",errDate:"請填寫取引日。",errAmt:"請填寫金額。",errStore:"尚未連上帳冊儲存空間。",saveFail:"儲存失敗",
+ emptyJ:"尚無仕訳。以下是範例，拍第一張收據後會換成你的帳。",countJ:"{y}年：顯示 {n} 筆（共 {t} 筆）",noMatch:"沒有符合條件的仕訳。",noExp:"{y}年還沒有經費。入帳後這裡會依科目加總。",expTotal:"經費計",
+ ex1:"（範例）東京無線タクシー",ex2:"（範例）手機月費・事業比例 50%",ex3:"（範例）9月分 Web制作",
+ bAI:"這個檢視無法使用 AI 讀取照片，仍可手動輸入。請在 claude.ai 或 Claude App 中開啟此頁。",bLogin:"需要登入 claude.ai 才能保存帳冊。目前輸入的資料不會被保存。",bId:"無法辨識登入身分，帳冊暫時無法保存。",bRead:"讀取帳冊失敗：",
+ noImg:"這個檢視無法傳送圖片給 AI，請手動輸入。",noAI:"AI 辨識未啟用，請手動輸入。",eGrant:"你沒有允許這個頁面使用 AI，請手動輸入，或重新整理後允許。",eRate:"AI 使用太頻繁，稍後再試或手動輸入。",eJson:"AI 回覆格式有誤，請重試或手動輸入。",eImg:"無法讀取這張圖片（格式或大小不支援）。",eAI:"AI 辨識失敗：",
+ noDl:"這個檢視無法下載檔案。",exported:"已匯出 {f}",expFail:"匯出失敗：",setLocal:"尚未連上儲存空間，設定只在這次開啟有效。",
+ era:"令和",csvJ:"仕訳帳",csvS:"科目別集計",month:"月",income:"收入",expense:"經費"}
+};
+// Account names stay Japanese (that's what the tax forms use); a translation is shown beside them in EN / 中文.
+const ACC_TR={
+ "旅費交通費":["Travel & transport","交通費"],"通信費":["Communication","通訊費"],"消耗品費":["Supplies","消耗品"],"会議費":["Meetings","會議費"],"接待交際費":["Entertainment","交際費"],
+ "新聞図書費":["Books & subscriptions","書報費"],"広告宣伝費":["Advertising","廣告費"],"支払手数料":["Fees & commissions","手續費"],"外注工賃":["Outsourcing","外包費"],"地代家賃":["Rent","房租"],
+ "水道光熱費":["Utilities","水電瓦斯"],"荷造運賃":["Shipping","運費"],"研修費":["Training","研修費"],"修繕費":["Repairs","修繕費"],"損害保険料":["Insurance","保險費"],"租税公課":["Taxes & dues","稅捐規費"],
+ "福利厚生費":["Welfare","福利費"],"給料賃金":["Wages","薪資"],"利子割引料":["Interest","利息"],"減価償却費":["Depreciation","折舊"],"雑費":["Miscellaneous","雜費"],
+ "事業主借":["Owner's contribution","業主借入"],"現金":["Cash","現金"],"普通預金":["Bank account","銀行存款"],"未払金":["Payable (card)","應付款"],"売掛金":["Receivable","應收帳款"],"事業主貸":["Owner's drawings","業主提領"],"売上高":["Sales","營業收入"]};
+let lang="en";
+try{const s=localStorage.getItem("lang");if(s&&I18N[s])lang=s;else{const n=(navigator.language||"").toLowerCase();lang=n.startsWith("ja")?"ja":n.startsWith("zh")?"zh":"en"}}catch(e){}
+const t=(k,v)=>{let s=(I18N[lang][k]??I18N.en[k]??k);if(v)for(const x in v)s=s.replace("{"+x+"}",v[x]);return s};
+const accText=a=>{if(lang==="ja"||!ACC_TR[a])return a;return ACC_TR[a][lang==="en"?0:1]+" · "+a};
+const accHTML=a=>{if(lang==="ja"||!ACC_TR[a])return esc(a);return esc(ACC_TR[a][lang==="en"?0:1])+`<span class="jp">${esc(a)}</span>`};
+
+const EXPENSE_ACCOUNTS=Object.keys(ACC_TR).slice(0,21);
+const CREDIT_ACCOUNTS=["事業主借","現金","普通預金","未払金"];
+const INCOME_DEBIT=["普通預金","売掛金","現金","事業主貸"];
+const yen=n=>"¥"+Math.round(n||0).toLocaleString("ja-JP");
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const todayStr=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const isQualified=no=>/^T\d{13}$/.test(String(no||"").replace(/[\s-]/g,""));
+const opts=(arr,sel,lab)=>arr.map(a=>`<option value="${esc(a)}" ${a===sel?"selected":""}>${esc(lab?lab(a):a)}</option>`).join("");
+
+let sb=null,uid=null;const sample=true,canImages=true;
+let entries=[];
+let settings={name:"",filing:"blue65",ctax:"exempt",cash:"事業主借",card:"事業主借",shogaku:"0",hint:""};
+const DEDUCT={blue65:650000,blue55:550000,blue10:100000,white:0};
+const queue=[];
+const now=new Date();let year=now.getFullYear();
+const isBlue=()=>settings.filing!=="white";
+
+// ===== static text =====
+function applyLang(){
+  document.documentElement.lang=lang==="zh"?"zh-Hant":lang;
+  document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=t(el.dataset.i18n));
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>el.placeholder=t(el.dataset.i18nPh));
+  document.querySelectorAll(".langsw button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===lang));
+  $("#lawList").innerHTML=t("law").map(x=>`<li>${x}</li>`).join("");
+  $("#imgViewImg").alt=t("receiptImg");
+  const fa=$("#fAcc").value;$("#fAcc").innerHTML=`<option value="">${t("all")}</option>`+opts([...EXPENSE_ACCOUNTS,"売上高"],fa,accText);
+  fillSettings();fillYears();renderBanners();renderQueue();render();
+}
+document.querySelectorAll(".langsw button").forEach(b=>b.onclick=()=>{lang=b.dataset.lang;try{localStorage.setItem("lang",lang)}catch(e){}applyLang()});
+
+let tTimer;
+function toast(msg){const el=$("#toast");el.textContent=msg;el.hidden=false;clearTimeout(tTimer);tTimer=setTimeout(()=>el.hidden=true,2600)}
+const bannerState=[];// {key,kind,extra}
+function banner(key,kind,extra){bannerState.push({key,kind,extra:extra||""});renderBanners()}
+function renderBanners(){$("#banners").innerHTML=bannerState.map(b=>`<div class="banner ${b.kind}">${esc(t(b.key)+b.extra)}</div>`).join("")}
+
+document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+function showTab(tb){
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===tb));
+  document.querySelectorAll("[data-panel]").forEach(p=>p.hidden=p.dataset.panel!==tb);
+  try{localStorage.setItem("tab",tb)}catch(e){}
+  render();
+}
+
+function fillYears(){
+  const ys=new Set([now.getFullYear(),now.getFullYear()-1]);entries.forEach(e=>e.date&&ys.add(+e.date.slice(0,4)));
+  const arr=[...ys].filter(Boolean).sort((a,b)=>b-a);
+  $("#yearSel").innerHTML=arr.map(y=>`<option value="${y}" ${y===year?"selected":""}>${y}${lang==="en"?"":"年"} (${t("era")} ${y-2018})</option>`).join("");
+}
+$("#yearSel").addEventListener("change",e=>{year=+e.target.value;render()});
+
+// ===== bookkeeping =====
+const totalOf=e=>(+e.amt10||0)+(+e.amt8||0)+(+e.amt0||0);
+const ratioOf=e=>Math.min(100,Math.max(0,e.bizRatio===""||e.bizRatio==null?100:+e.bizRatio))/100;
+const bizOf=e=>e.type==="income"?totalOf(e):Math.round(totalOf(e)*ratioOf(e));
+function linesOf(e){
+  const total=totalOf(e);
+  if(e.type==="income") return [{dr:e.debit||"普通預金",cr:"売上高",amt:total}];
+  const biz=bizOf(e),priv=total-biz,cr=e.credit||"事業主借";
+  if(cr==="事業主借") return [{dr:e.debit,cr,amt:biz}];
+  const L=[{dr:e.debit,cr,amt:biz}];
+  if(priv>0) L.push({dr:"事業主貸",cr,amt:priv,priv:true});
+  return L;
+}
+const qualOK=e=>isQualified(e.invoiceNo)||(settings.shogaku==="1"&&totalOf(e)<10000);
+
+// ===== entry form =====
+function formHTML(d,p){
+  const inc=d.type==="income";const id=k=>p+"_"+k;
+  const fld=(k,lab,inner)=>`<label class="f ${k}" for="${id(lab)}"><span>${t(lab)}</span>${inner}</label>`;
+  const num=k=>`<input type="number" inputmode="numeric" class="num" id="${id(k)}" data-k="${k}" value="${d[k]||""}">`;
+  return `<div class="grid">
+    <label class="f" for="${id("date")}">${t("date")}<input type="date" id="${id("date")}" data-k="date" value="${esc(d.date)}"></label>
+    <label class="f span2" for="${id("vendor")}">${t(inc?"client":"vendor")}<input id="${id("vendor")}" data-k="vendor" value="${esc(d.vendor)}"></label>
+    ${inc?"":`<label class="f" for="${id("invoiceNo")}">${t("regNo")}<input id="${id("invoiceNo")}" data-k="invoiceNo" value="${esc(d.invoiceNo)}" placeholder="T1234567890123"></label>`}
+    <label class="f span2" for="${id("items")}">${t("items")}<input id="${id("items")}" data-k="items" value="${esc(d.items)}"></label>
+    <label class="f" for="${id("amt10")}">${t("a10")}${num("amt10")}</label>
+    <label class="f" for="${id("amt8")}">${t("a8")}${num("amt8")}</label>
+    <label class="f" for="${id("amt0")}">${t("a0")}${num("amt0")}</label>
+    <label class="f" for="${id("debit")}">${t(inc?"debitInc":"debitExp")}<select id="${id("debit")}" data-k="debit">${opts(inc?INCOME_DEBIT:EXPENSE_ACCOUNTS,d.debit,accText)}</select></label>
+    ${inc?"":`<label class="f" for="${id("credit")}">${t("credit")}<select id="${id("credit")}" data-k="credit">${opts(CREDIT_ACCOUNTS,d.credit,accText)}</select></label>
+    <label class="f" for="${id("bizRatio")}">${t("ratio")}<input type="number" min="0" max="100" class="num" id="${id("bizRatio")}" data-k="bizRatio" value="${d.bizRatio??100}"></label>`}
+    <label class="f span2" for="${id("memo")}">${t("memo")}<input id="${id("memo")}" data-k="memo" value="${esc(d.memo)}"></label>
+  </div><div class="preview-lines" data-preview style="margin-top:12px"></div>`;
+}
+function readForm(root,base){
+  const d={...base};
+  root.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;let v=el.value;
+    if(["amt10","amt8","amt0","bizRatio"].includes(k)) v=v===""?(k==="bizRatio"?100:0):Math.round(+v);
+    if(k==="invoiceNo") v=v.replace(/[\s-]/g,"").toUpperCase();
+    d[k]=v;});
+  return d;
+}
+function updatePreview(root,base){
+  const d=readForm(root,base);
+  let h=linesOf(d).map(l=>`<div><span>Dr ${esc(accText(l.dr))} / Cr ${esc(accText(l.cr))}</span><span class="num">${yen(l.amt)}</span></div>`).join("");
+  h+=`<div class="muted"><span>${t("total")}</span><span class="num">${yen(totalOf(d))}</span></div>`;
+  if(d.type!=="income"){
+    const c=[isQualified(d.invoiceNo)?`<span class="chip ok">${t("qualified")}</span>`:`<span class="chip no">${t("noReg")}</span>`];
+    if(d.debit==="消耗品費"&&totalOf(d)>=100000) c.push(`<span class="chip low">${t("bigSupply")}</span>`);
+    h+=`<div style="justify-content:flex-start;gap:6px;margin-top:4px">${c.join("")}</div>`;
+  }
+  root.querySelector("[data-preview]").innerHTML=h;
+}
+function wireForm(root,base){root.addEventListener("input",()=>updatePreview(root,base));updatePreview(root,base)}
+
+const toRow=d=>({id:d.id,type:d.type,date:d.date,vendor:d.vendor||"",invoice_no:d.invoiceNo||"",items:d.items||"",amt10:+d.amt10||0,amt8:+d.amt8||0,amt0:+d.amt0||0,
+  debit:d.debit,credit:d.credit,biz_ratio:d.bizRatio,memo:d.memo||"",receipt_path:d.assetId||null,ai_confidence:d.aiConfidence||"",updated_at:new Date().toISOString()});
+const fromRow=r=>({id:r.id,type:r.type,date:r.date,vendor:r.vendor,invoiceNo:r.invoice_no,items:r.items,amt10:r.amt10,amt8:r.amt8,amt0:r.amt0,debit:r.debit,credit:r.credit,
+  bizRatio:r.biz_ratio,memo:r.memo,assetId:r.receipt_path||"",aiConfidence:r.ai_confidence,createdAt:r.created_at});
+async function loadEntries(){
+  const out=[];
+  for(let from=0;;from+=1000){
+    const {data,error}=await sb.from("entries").select("*").order("date",{ascending:false}).range(from,from+999);
+    if(error){banner("bRead","err",error.message);break}
+    out.push(...data);if(data.length<1000)break;
+  }
+  entries=out.map(fromRow);fillYears();render();
+}
+async function saveEntry(d){
+  if(!sb||!uid) throw {message:t("errStore")};
+  if(!d.date) throw {message:t("errDate")};
+  if(totalOf(d)<=0) throw {message:t("errAmt")};
+  const id=d.id||("e"+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  const inc=d.type==="income";
+  const row=toRow({...d,id,credit:inc?"売上高":(d.credit||"事業主借"),bizRatio:inc?100:(d.bizRatio===""?100:+d.bizRatio)});
+  const {error}=await sb.from("entries").upsert(row);
+  if(error) throw {message:error.message};
+  await loadEntries();
+  return id;
+}
+
+// ===== scanning =====
+const fileIn=$("#fileIn"),drop=$("#drop");
+fileIn.addEventListener("change",()=>{addFiles(fileIn.files);fileIn.value=""});
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>addFiles(e.dataTransfer.files));
+async function downscale(file){
+  const url=URL.createObjectURL(file);
+  try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=url});
+    const s=Math.min(1,1568/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement("canvas");
+    c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    return await new Promise(r=>c.toBlob(r,"image/jpeg",0.85));}finally{URL.revokeObjectURL(url)}
+}
+function addFiles(files){
+  [...files].filter(f=>f.type.startsWith("image/")||/\.(heic|jpe?g|png|webp)$/i.test(f.name)).forEach(f=>queue.push({id:"q"+Math.random().toString(36).slice(2,8),file:f,url:URL.createObjectURL(f),status:"waiting",draft:null}));
+  renderQueue();pump();
+}
+let pumping=false;
+async function pump(){if(pumping)return;pumping=true;try{for(const q of queue)if(q.status==="waiting")await processOne(q)}finally{pumping=false}}
+async function blobToB64(b){const buf=new Uint8Array(await b.arrayBuffer());let bin="";for(let i=0;i<buf.length;i+=0x8000)bin+=String.fromCharCode.apply(null,buf.subarray(i,i+0x8000));return btoa(bin)}
+async function scanReceipt(blob){
+  const {data:{session}}=await sb.auth.getSession();
+  const res=await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?session.access_token:"")},
+    body:JSON.stringify({image:await blobToB64(blob),mediaType:blob.type||"image/jpeg",lang,year,hint:settings.hint||"",accounts:EXPENSE_ACCOUNTS})});
+  let body={};try{body=await res.json()}catch(e){}
+  if(!res.ok) throw {code:res.status===401||res.status===403?"auth":res.status===429?"rate_limited":"server",message:body.error||("HTTP "+res.status)};
+  return body;
+}
+async function processOne(q){
+  q.status="reading";renderQueue();
+  let blob;try{blob=await downscale(q.file)}catch(e){blob=q.file}q.blob=blob;
+  const base={type:"expense",date:"",vendor:"",invoiceNo:"",items:"",amt10:0,amt8:0,amt0:0,debit:"消耗品費",credit:settings.card,bizRatio:100,memo:""};
+  try{
+    const r=await scanReceipt(blob);
+    q.draft={...base,date:r.date||"",vendor:r.vendor||"",invoiceNo:(r.invoice_no||"").replace(/[\s-]/g,"").toUpperCase(),items:r.items||"",
+      amt10:Math.round(+r.amount_10||0),amt8:Math.round(+r.amount_8||0),amt0:Math.round(+r.amount_other||0),
+      debit:EXPENSE_ACCOUNTS.includes(r.account)?r.account:"雑費",credit:String(r.payment)==="cash"?settings.cash:settings.card,
+      aiConfidence:r.confidence||"",aiNotes:r.notes||""};
+    if(totalOf(q.draft)===0&&r.total) q.draft.amt10=Math.round(+r.total);
+    q.status="review";q.errKey=null;
+  }catch(e){
+    const m={auth:"eAuthApi",rate_limited:"eRate",invalid_json:"eJson"};
+    q.status="manual";q.errKey=m[e&&e.code]||"eServer";q.errExtra=m[e&&e.code]?"":(e&&e.message||"");q.draft=base;
+  }
+  renderQueue();
+}
+function renderQueue(){
+  const box=$("#queue");box.hidden=queue.length===0;box.innerHTML="";
+  queue.forEach(q=>{
+    const card=document.createElement("div");card.className="qcard";
+    let right="";
+    if(q.status==="waiting"||q.status==="reading") right=`<div class="status">${q.status==="reading"?`<span class="spinner"></span>${t("reading")}`:t("waiting")}</div>`;
+    else if(q.status==="saved") right=`<div class="status"><span class="chip ok">${t("posted")}</span><span class="muted">${esc(q.draft.date)} ${esc(q.draft.vendor)} ${yen(totalOf(q.draft))}</span></div>`;
+    else{
+      const c=q.draft.aiConfidence;
+      const note=q.errKey?`<div class="banner warn small" style="margin:0 0 12px">${esc(t(q.errKey)+(q.errExtra||""))}</div>`:
+        `<div class="small" style="margin-bottom:10px">${c==="low"?`<span class="chip low">${t("lowConf")}</span> `:c?`<span class="chip inc">${t("aiFilled")}</span> `:""}${q.draft.aiNotes?`<span class="muted">${esc(q.draft.aiNotes)}</span>`:""}</div>`;
+      right=`${note}<div data-form>${formHTML(q.draft,q.id)}</div>
+        <div class="row" style="margin-top:12px"><button class="btn primary" data-save>${t("confirm")}</button><button class="btn ghost" data-retry ${sample&&canImages?"":"hidden"}>${t("retry")}</button><button class="btn ghost" data-drop>${t("remove")}</button><span class="small" data-msg></span></div>`;
+    }
+    card.innerHTML=`<div class="stack" style="gap:8px"><img class="thumb" src="${q.url}" alt="${esc(t("receiptImg"))}" data-zoom="${q.url}"><span class="small muted" style="overflow-wrap:anywhere">${esc(q.file.name)}</span></div><div style="min-width:0">${right}</div>`;
+    box.appendChild(card);
+    const form=card.querySelector("[data-form]");
+    if(form){
+      wireForm(form,q.draft);
+      form.addEventListener("input",()=>{q.draft=readForm(form,q.draft)});
+      card.querySelector("[data-save]").onclick=async ev=>{
+        const btn=ev.currentTarget;btn.disabled=true;const msg=card.querySelector("[data-msg]");const d=readForm(form,q.draft);
+        try{if(q.blob&&!d.assetId){msg.textContent=t("uploading");
+          const path=`${uid}/${(d.date||todayStr()).slice(0,7)}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}.jpg`;
+          const {error}=await sb.storage.from("receipts").upload(path,q.blob,{contentType:"image/jpeg",upsert:false});
+          if(error)throw error;d.assetId=path}}
+        catch(e){msg.textContent=t("photoFail",{e:e.message||e.code})}
+        try{await saveEntry(d);q.draft=d;q.status="saved";renderQueue();toast(t("tPosted",{v:d.vendor||d.items}))}
+        catch(e){btn.disabled=false;msg.textContent=e.message||t("saveFail");msg.style.color="var(--shu)"}
+      };
+      card.querySelector("[data-retry]").onclick=()=>{q.status="waiting";q.errKey=null;renderQueue();pump()};
+      card.querySelector("[data-drop]").onclick=()=>{URL.revokeObjectURL(q.url);queue.splice(queue.indexOf(q),1);renderQueue()};
+    }
+  });
+  box.querySelectorAll("[data-zoom]").forEach(i=>i.onclick=()=>zoom(i.dataset.zoom));
+}
+$("#manualExp").onclick=()=>openEditor({type:"expense",date:todayStr(),amt10:0,amt8:0,amt0:0,debit:"消耗品費",credit:settings.cash,bizRatio:100},true);
+$("#manualInc").onclick=()=>openEditor({type:"income",date:todayStr(),amt10:0,amt8:0,amt0:0,debit:"普通預金"},true);
+
+document.querySelectorAll("dialog [data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+function zoom(src){$("#imgViewImg").src=src;$("#imgView").showModal()}
+async function zoomStored(path){
+  const {data,error}=await sb.storage.from("receipts").createSignedUrl(path,600);
+  if(error){toast(error.message);return}zoom(data.signedUrl);
+}
+function openEditor(d,isNew){
+  $("#editTitle").textContent=isNew?t(d.type==="income"?"newInc":"newExp"):t("editTitle");
+  const body=$("#editBody");
+  body.innerHTML=`<div data-form>${formHTML(d,"ed")}</div>
+   <div class="row" style="margin-top:14px;justify-content:space-between">
+     <div class="row"><button class="btn primary" data-save>${t(isNew?"post":"saveChanges")}</button>${d.assetId?`<button class="btn" data-img>${t("viewReceipt")}</button>`:""}</div>
+     ${isNew?"":`<div class="confirm-inline" data-delwrap><button class="btn danger" data-del>${t("del")}</button></div>`}
+   </div><p class="small" data-msg></p>`;
+  const form=body.querySelector("[data-form]");wireForm(form,d);
+  body.querySelector("[data-save]").onclick=async()=>{
+    try{await saveEntry(readForm(form,d));$("#editDlg").close();toast(t(isNew?"tPosted":"tUpdated",{v:""}))}
+    catch(e){const m=body.querySelector("[data-msg]");m.textContent=e.message||t("saveFail");m.style.color="var(--shu)"}
+  };
+  const im=body.querySelector("[data-img]");if(im)im.onclick=()=>zoomStored(d.assetId);
+  const del=body.querySelector("[data-del]");
+  if(del)del.onclick=()=>{
+    const w=body.querySelector("[data-delwrap]");
+    w.innerHTML=`<span>${t("delQ")}</span><button class="btn danger" data-yes>${t("del")}</button><button class="btn" data-no>${t("cancel")}</button>`;
+    w.querySelector("[data-no]").onclick=()=>openEditor(d,false);
+    w.querySelector("[data-yes]").onclick=async()=>{
+      try{const {error}=await sb.from("entries").delete().eq("id",d.id);if(error)throw error;$("#editDlg").close();toast(t("tDeleted"));await loadEntries()}
+      catch(e){body.querySelector("[data-msg]").textContent=t("saveFail")+": "+(e.message||e.code)}
+    };
+  };
+  $("#editDlg").showModal();
+}
+
+// ===== journal =====
+["#fFrom","#fTo","#fMin","#fMax","#fQ","#fAcc"].forEach(s=>$(s).addEventListener("input",renderJournal));
+const yearEntries=()=>entries.filter(e=>(e.date||"").startsWith(String(year)));
+function filtered(){
+  const from=$("#fFrom").value,to=$("#fTo").value,min=$("#fMin").value,max=$("#fMax").value,q=$("#fQ").value.trim().toLowerCase(),acc=$("#fAcc").value;
+  return yearEntries().filter(e=>{const s=totalOf(e);
+    if(from&&e.date<from)return false;if(to&&e.date>to)return false;if(min!==""&&s<+min)return false;if(max!==""&&s>+max)return false;
+    if(q&&!((e.vendor||"")+" "+(e.items||"")+" "+(e.memo||"")).toLowerCase().includes(q))return false;
+    if(acc&&!(e.debit===acc||(acc==="売上高"&&e.type==="income")))return false;return true;
+  }).sort((a,b)=>b.date.localeCompare(a.date)||(b.createdAt||"").localeCompare(a.createdAt||""));
+}
+function renderJournal(){
+  const tb=$("#jTable tbody");const list=filtered();
+  if(entries.length===0){
+    $("#jCount").textContent=t("emptyJ");
+    const ok=`<span class="chip ok">${t("qual")}</span>`;
+    tb.innerHTML=`<tr class="ex"><td class="num">2026-09-28</td><td>${accHTML("旅費交通費")}</td><td class="r num">¥1,180</td><td>${accHTML("事業主借")}</td><td class="r num">¥1,180</td><td>${t("ex1")}</td><td>${ok}</td><td></td></tr>
+      <tr class="ex"><td class="num">2026-09-26</td><td>${accHTML("通信費")}</td><td class="r num">¥3,960</td><td>${accHTML("普通預金")}</td><td class="r num">¥3,960</td><td>${t("ex2")}</td><td>${ok}</td><td></td></tr>
+      <tr class="ex sub"><td></td><td>${accHTML("事業主貸")}</td><td class="r num">¥3,960</td><td>${accHTML("普通預金")}</td><td class="r num">¥3,960</td><td>${t("private")}</td><td></td><td></td></tr>
+      <tr class="ex"><td class="num">2026-09-25</td><td>${accHTML("普通預金")}</td><td class="r num">¥220,000</td><td>${accHTML("売上高")}</td><td class="r num">¥220,000</td><td>${t("ex3")}</td><td></td><td></td></tr>`;
+    return;
+  }
+  $("#jCount").textContent=t("countJ",{y:year,n:list.length,t:yearEntries().length});
+  if(!list.length){tb.innerHTML=`<tr><td colspan="8" class="muted">${t("noMatch")}</td></tr>`;return}
+  tb.innerHTML=list.map(e=>{
+    const q=e.type==="income"?`<span class="chip inc">${t("sales")}</span>`:(qualOK(e)?`<span class="chip ok">${t("qual")}</span>`:`<span class="chip no">${t("nonqual")}</span>`);
+    const desc=`${esc(e.vendor)}${e.items?` <span class="muted">${esc(e.items)}</span>`:""}${e.type!=="income"&&ratioOf(e)<1?` <span class="chip inc">${t("biz",{n:Math.round(ratioOf(e)*100)})}</span>`:""}`;
+    return linesOf(e).map((l,i)=>`<tr class="clickable ${i?"sub":""}" data-id="${e.id}">
+      <td class="num">${i?"":esc(e.date)}</td><td>${accHTML(l.dr)}</td><td class="r num">${yen(l.amt)}</td><td class="cr">${accHTML(l.cr)}</td><td class="r num">${yen(l.amt)}</td>
+      <td>${i?`<span class="muted">${t("private")}</span>`:desc}</td><td>${i?"":q}</td>
+      <td>${!i&&e.assetId?`<button class="btn ghost small" data-img="${e.assetId}">${t("receipt")}</button>`:""}</td></tr>`).join("");
+  }).join("");
+  tb.querySelectorAll("tr.clickable").forEach(tr=>tr.onclick=ev=>{
+    const b=ev.target.closest("[data-img]");if(b){ev.stopPropagation();zoomStored(b.dataset.img);return}
+    const e=entries.find(x=>x.id===tr.dataset.id);if(e)openEditor({...e},false);
+  });
+}
+
+// ===== summary =====
+function renderSummary(){
+  const ys=yearEntries();
+  const sales=ys.filter(e=>e.type==="income").reduce((s,e)=>s+totalOf(e),0);
+  const exps=ys.filter(e=>e.type!=="income");const expTotal=exps.reduce((s,e)=>s+bizOf(e),0);
+  const inc=sales-expTotal;const ded=DEDUCT[settings.filing]||0;
+  $("#kSales").textContent=yen(sales);$("#kExp").textContent=yen(expTotal);$("#kInc").textContent=yen(inc);$("#kIncWrap").classList.toggle("neg",inc<0);
+  $("#kAfterLabel").textContent=t(isBlue()?"kAfterBlue":"kAfterWhite");
+  $("#kAfter").textContent=yen(isBlue()?Math.max(0,inc-Math.min(ded,Math.max(0,inc))):inc);
+  $("#byAccSub").textContent=t(isBlue()?"byAccSubBlue":"byAccSubWhite");
+  const ms=Array(12).fill(0),me=Array(12).fill(0);
+  ys.forEach(e=>{const m=+e.date.slice(5,7)-1;if(m<0||m>11)return;if(e.type==="income")ms[m]+=totalOf(e);else me[m]+=bizOf(e)});
+  const mx=Math.max(1,...ms,...me);
+  $("#bars").innerHTML=ms.map((s,i)=>`<div class="bar" title="${i+1}: ${t("legSales")} ${yen(s)} / ${t("legExp")} ${yen(me[i])}" style="flex-direction:row;align-items:flex-end;gap:2px"><i class="s" style="flex:1;height:${s/mx*100}%"></i><i class="e" style="flex:1;height:${me[i]/mx*100}%"></i></div>`).join("");
+  const by={};exps.forEach(e=>{const k=e.debit||"雑費";by[k]=by[k]||{n:0,v:0};by[k].n++;by[k].v+=bizOf(e)});
+  const rows=EXPENSE_ACCOUNTS.filter(a=>by[a]).map(a=>[a,by[a]]);
+  $("#accTable tbody").innerHTML=rows.length?rows.map(([a,o])=>`<tr><td>${accHTML(a)}</td><td class="r num">${o.n}</td><td class="r num">${yen(o.v)}</td><td class="r num">${expTotal?(o.v/expTotal*100).toFixed(1):"0.0"}%</td></tr>`).join(""):`<tr><td colspan="4" class="muted">${t("noExp",{y:year})}</td></tr>`;
+  $("#accTable tfoot").innerHTML=rows.length?`<tr><td>${t("expTotal")}</td><td class="r num">${exps.length}</td><td class="r num">${yen(expTotal)}</td><td class="r num">100%</td></tr>`:"";
+  let q10=0,q8=0,n10=0,n8=0,d10=0,d8=0;
+  const pct=d=>d<"2026-10-01"?.8:(d<"2029-10-01"?.5:0);
+  exps.forEach(e=>{const r=ratioOf(e);if(qualOK(e)){q10+=e.amt10*r;q8+=e.amt8*r}else{n10+=e.amt10*r;n8+=e.amt8*r;d10+=e.amt10*r*pct(e.date);d8+=e.amt8*r*pct(e.date)}});
+  $("#ctaxTable tbody").innerHTML=`<tr><td>${t("rowQ")}</td><td class="r num">${yen(q10)}</td><td class="r num">${yen(q8)}</td></tr><tr><td>${t("rowN")}</td><td class="r num">${yen(n10)}</td><td class="r num">${yen(n8)}</td></tr><tr><td>${t("rowND")}</td><td class="r num">${yen(d10)}</td><td class="r num">${yen(d8)}</td></tr>`;
+  $("#ctaxNote").textContent=t("ctax_"+settings.ctax);
+}
+
+// ===== CSV (account names stay Japanese for filing) =====
+function csv(rows){return "﻿"+rows.map(r=>r.map(v=>{v=String(v??"");return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(",")).join("\r\n")}
+async function save(name,text){
+  const url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);toast(t("exported",{f:name}));
+}
+$("#expJournal").onclick=()=>{
+  const rows=[["取引日","借方勘定科目","借方金額","貸方勘定科目","貸方金額","摘要","取引先","登録番号","適格","10%対象(税込)","8%対象(税込)","不課税等","事業割合%","登録日"]];
+  filtered().slice().reverse().forEach(e=>linesOf(e).forEach((l,i)=>rows.push([e.date,l.dr,l.amt,l.cr,l.amt,i?"私用分":(e.items||e.memo||""),e.vendor,e.invoiceNo,e.type==="income"?"":(qualOK(e)?"適格":"非適格"),i?"":e.amt10,i?"":e.amt8,i?"":e.amt0,e.type==="income"?"":Math.round(ratioOf(e)*100),(e.createdAt||"").slice(0,10)])));
+  save(`${t("csvJ")}_${year}.csv`,csv(rows));
+};
+$("#expSummary").onclick=()=>{
+  const ys=yearEntries();const rows=[["区分","科目","金額"]];
+  rows.push(["収入","売上(収入)金額",ys.filter(e=>e.type==="income").reduce((s,e)=>s+totalOf(e),0)]);
+  EXPENSE_ACCOUNTS.forEach(a=>{const v=ys.filter(e=>e.type!=="income"&&e.debit===a).reduce((s,e)=>s+bizOf(e),0);if(v)rows.push(["経費",a,v])});
+  rows.push([]);rows.push(["月","売上","経費"]);
+  for(let m=1;m<=12;m++){const mm=String(m).padStart(2,"0");const inM=ys.filter(e=>e.date.slice(5,7)===mm);rows.push([m+"月",inM.filter(e=>e.type==="income").reduce((s,e)=>s+totalOf(e),0),inM.filter(e=>e.type!=="income").reduce((s,e)=>s+bizOf(e),0)])}
+  save(`${t("csvS")}_${year}.csv`,csv(rows));
+};
+
+// ===== settings =====
+function fillSettings(){
+  $("#sName").value=settings.name||"";
+  $("#sFiling").innerHTML=opts(["blue65","blue55","blue10","white"],settings.filing,k=>t("f_"+k));
+  $("#sCtax").innerHTML=opts(["exempt","simple","niwari","general"],settings.ctax,k=>t("c_"+k));
+  $("#sCash").innerHTML=opts(["事業主借","現金"],settings.cash,accText);
+  $("#sCard").innerHTML=opts(["事業主借","未払金","普通預金"],settings.card,accText);
+  $("#sShoGaku").innerHTML=opts(["0","1"],settings.shogaku,k=>t("sg"+k));
+  $("#sHint").value=settings.hint||"";
+  $("#bizName").textContent=settings.name||"Receipt Ledger";
+}
+$("#saveSettings").onclick=async()=>{
+  const s={kind:"settings",name:$("#sName").value.trim(),filing:$("#sFiling").value,ctax:$("#sCtax").value,cash:$("#sCash").value,card:$("#sCard").value,shogaku:$("#sShoGaku").value,hint:$("#sHint").value.trim(),lang};
+  Object.assign(settings,s);fillSettings();render();
+  const {error}=await sb.from("settings").upsert({user_id:uid,data:s,updated_at:new Date().toISOString()});
+  $("#setMsg").textContent=error?t("saveFail")+": "+error.message:t("saved");
+};
+
+function render(){
+  const a=document.querySelector("nav.tabs [aria-selected=true]")?.dataset.tab;
+  if(a==="journal")renderJournal();if(a==="summary")renderSummary();
+}
+try{const tb=localStorage.getItem("tab");if(tb)showTab(tb)}catch(e){}
+applyLang();
+
+// ===== auth & data (Supabase) =====
+let signUpMode=false;
+function setAuthMode(up){signUpMode=up;$("#aSubmit").dataset.i18n=up?"signUp":"signIn";$("#aToggle").dataset.i18n=up?"haveAcct":"noAcct";
+  $("#aPass").autocomplete=up?"new-password":"current-password";applyLang()}
+$("#aToggle").onclick=()=>setAuthMode(!signUpMode);
+$("#authForm").addEventListener("submit",async e=>{
+  e.preventDefault();const msg=$("#aMsg");msg.style.color="";msg.textContent="…";
+  const email=$("#aEmail").value.trim(),password=$("#aPass").value;
+  const r=signUpMode?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin}}):await sb.auth.signInWithPassword({email,password});
+  if(r.error){msg.style.color="var(--shu)";msg.textContent=t("authErr")+r.error.message;return}
+  if(signUpMode&&!r.data.session){msg.textContent=t("checkEmail");setAuthMode(false);return}
+  msg.textContent="";
+});
+$("#signOut").onclick=async()=>{await sb.auth.signOut()};
+async function onSession(session){
+  const signedIn=!!session;$("#authView").hidden=signedIn;$("#appView").hidden=!signedIn;
+  if(!signedIn){uid=null;entries=[];return}
+  if(uid===session.user.id)return;
+  uid=session.user.id;
+  const {data}=await sb.from("settings").select("data").eq("user_id",uid).maybeSingle();
+  if(data&&data.data){settings={...settings,...data.data};
+    let stored=null;try{stored=localStorage.getItem("lang")}catch(e){}
+    if(!stored&&data.data.lang&&I18N[data.data.lang])lang=data.data.lang;}
+  applyLang();await loadEntries();
+}
+(async()=>{
+  try{
+    const cfg=await (await fetch("/api/config")).json();
+    if(!cfg.supabaseUrl||!cfg.supabaseAnonKey)throw 0;
+    sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
+  }catch(e){$("#authView").hidden=false;$("#authForm").hidden=true;$("#aMsg").textContent=t("eCfg");return}
+  sb.auth.onAuthStateChange((_ev,session)=>{setTimeout(()=>onSession(session),0)});
+  const {data:{session}}=await sb.auth.getSession();onSession(session);
+})();
+})();
+</script>
