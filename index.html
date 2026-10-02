@@ -74,7 +74,11 @@ nav.tabs button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
 
 .drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;border:2px dashed var(--rule-strong);border-radius:var(--r);padding:28px 16px;background:var(--sheet);cursor:pointer}
 .drop.over{border-color:var(--ai);background:var(--ai-soft)}
-.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop{position:relative;cursor:default}
+.drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.pickrow{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-block:4px}
+.pick{min-height:48px;padding-inline:20px;cursor:pointer}
+.pick:focus-within{outline:2px solid var(--ai);outline-offset:2px}
 .drop .big{font-family:var(--f-display);font-size:1.15rem;font-weight:700}
 .cam{width:46px;height:46px;color:var(--ai)}
 
@@ -205,12 +209,17 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
   <div id="banners"></div>
 
   <section data-panel="scan" class="stack">
-    <label class="drop" id="drop" for="fileIn">
+    <div class="drop" id="drop">
       <svg class="cam" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M6 16h8l4-6h12l4 6h8v24H6z" stroke-linejoin="round"/><circle cx="24" cy="27" r="8"/></svg>
       <span class="big" data-i18n="dropTitle"></span>
+      <div class="pickrow">
+        <label class="btn primary pick" for="camIn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v11H3z" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5"/></svg><span data-i18n="pickCam"></span></label>
+        <label class="btn pick" for="fileIn"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg><span data-i18n="pickLib"></span></label>
+      </div>
       <span class="muted small" data-i18n="dropSub"></span>
-      <input type="file" id="fileIn" accept="image/*" capture="environment" multiple>
-    </label>
+      <input type="file" id="camIn" accept="image/*" capture="environment">
+      <input type="file" id="fileIn" accept="image/*,.heic,.heif" multiple>
+    </div>
     <div class="row">
       <button class="btn" id="manualExp" data-i18n="manualExp"></button>
       <button class="btn" id="manualInc" data-i18n="manualInc"></button>
@@ -308,7 +317,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 // ===== i18n =====
 const I18N={
 en:{ocrReading:"Reading on your device (free)…",ocrLoading:"Downloading Japanese text data (first time only, about 15 MB)…",ocrFilled:"Read on your device — check the amounts and account",eOcr:"On-device reading failed: ",authSub:"Sign in to your own ledger. Your receipts and books are stored in your Supabase database.",email:"Email",password:"Password (8+ characters)",signIn:"Sign in",signUp:"Create account",signOut:"Sign out",noAcct:"No account yet? Create one",haveAcct:"Have an account? Sign in",checkEmail:"Check your inbox and open the confirmation link, then sign in.",authErr:"Sign-in failed: ",eServer:"The server could not read the receipt: ",eAuthApi:"Your account isn't allowed to use AI reading. Ask the site owner to add your email.",eCfg:"The site isn't configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY on the server.",eyebrow:"Japanese sole proprietor · 個人事業主",yearLabel:"Tax year (Jan–Dec)",tabScan:"Scan receipts",tabJournal:"Journal",tabSummary:"Summary",tabSettings:"Settings",
- dropTitle:"Take a photo or choose receipts",dropSub:"Select several at once. AI reads the date, store, amounts, 10% / 8% tax rates and invoice registration number. Nothing is posted until you confirm.",
+ dropTitle:"Add receipts",dropSub:"Pick several photos at once, or drag them here on a computer. Nothing is posted until you confirm.",pickCam:"Take photo",pickLib:"Choose from photos",
  manualExp:"Add an expense manually",manualInc:"Record income (sales)",queueHint:"Confirmed receipts appear in the Journal. Photos are kept with each entry so you can search them later, as the Electronic Bookkeeping Act requires.",
  fFrom:"Date from",fTo:"Date to",fMin:"Amount min",fMax:"Amount max",fQ:"Vendor / memo",fAcc:"Account",all:"All",expJournal:"Export journal CSV",
  thDate:"Date",thDr:"Debit",thAmt:"Amount",thCr:"Credit",thDesc:"Description / vendor",thQual:"Invoice",
@@ -338,7 +347,7 @@ en:{ocrReading:"Reading on your device (free)…",ocrLoading:"Downloading Japane
  noDl:"Downloads aren't available in this view.",exported:"Exported {f}",expFail:"Export failed: ",setLocal:"Not connected to storage; settings apply to this visit only.",
  era:"Reiwa",csvJ:"journal",csvS:"summary",month:"Month",income:"Income",expense:"Expense"},
 ja:{ocrReading:"端末内で読み取り中（無料）…",ocrLoading:"日本語データをダウンロード中（初回のみ・約15MB）…",ocrFilled:"端末内で読み取りました。金額と科目を確認してください",eOcr:"端末内の読み取りに失敗しました：",authSub:"自分の帳簿にログインします。レシートと帳簿はあなたの Supabase データベースに保存されます。",email:"メールアドレス",password:"パスワード（8文字以上）",signIn:"ログイン",signUp:"アカウント作成",signOut:"ログアウト",noAcct:"アカウントを作成",haveAcct:"ログインに戻る",checkEmail:"確認メールのリンクを開いてから、ログインしてください。",authErr:"ログインできませんでした：",eServer:"サーバーで読み取りに失敗しました：",eAuthApi:"このアカウントはAI読取を利用できません。管理者にメールアドレスの追加を依頼してください。",eCfg:"サイトの設定が未完了です。サーバーに SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。",eyebrow:"個人事業主の帳簿",yearLabel:"年分（1月〜12月）",tabScan:"レシート撮影",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
- dropTitle:"レシートを撮影・選択",dropSub:"複数枚まとめて選べます。AIが取引日・店名・金額・10%／8%税率・登録番号を読み取ります。確認するまで記帳されません。",
+ dropTitle:"レシートを追加",dropSub:"写真は複数枚まとめて選べます。パソコンではここにドラッグもできます。確認するまで記帳されません。",pickCam:"撮影する",pickLib:"写真から選ぶ",
  manualExp:"経費を手入力",manualInc:"売上を記帳",queueHint:"確定したレシートは仕訳帳に入ります。画像も一緒に保存され、電子帳簿保存法の検索要件に対応します。",
  fFrom:"取引日（から）",fTo:"取引日（まで）",fMin:"金額（下限）",fMax:"金額（上限）",fQ:"取引先・摘要",fAcc:"勘定科目",all:"すべて",expJournal:"仕訳帳をCSV出力",
  thDate:"日付",thDr:"借方",thAmt:"金額",thCr:"貸方",thDesc:"摘要・取引先",thQual:"適格",
@@ -368,7 +377,7 @@ ja:{ocrReading:"端末内で読み取り中（無料）…",ocrLoading:"日本�
  noDl:"この画面ではダウンロードできません。",exported:"{f} を出力しました",expFail:"出力に失敗しました：",setLocal:"保存先に未接続のため、設定は今回のみ有効です。",
  era:"令和",csvJ:"仕訳帳",csvS:"科目別集計",month:"月",income:"収入",expense:"経費"},
 zh:{ocrReading:"在你的裝置上辨識中（免費）…",ocrLoading:"下載日文辨識資料中（僅第一次，約 15 MB）…",ocrFilled:"已在裝置上辨識，請核對金額與科目",eOcr:"裝置上辨識失敗：",authSub:"登入你自己的帳冊。收據與帳冊存放在你的 Supabase 資料庫。",email:"電子郵件",password:"密碼（8 個字元以上）",signIn:"登入",signUp:"建立帳號",signOut:"登出",noAcct:"還沒有帳號？建立一個",haveAcct:"已有帳號？登入",checkEmail:"請到信箱打開確認連結，再回來登入。",authErr:"登入失敗：",eServer:"伺服器讀取收據失敗：",eAuthApi:"這個帳號不能使用 AI 辨識，請網站管理者把你的 email 加入允許名單。",eCfg:"網站尚未設定完成，請在伺服器設定 SUPABASE_URL 與 SUPABASE_ANON_KEY。",eyebrow:"日本個人事業主帳冊",yearLabel:"年分（1月〜12月）",tabScan:"拍收據",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
- dropTitle:"拍照或選擇收據",dropSub:"可一次選多張。AI 會讀出日期、店名、金額、10%／8% 稅率與インボイス登録番号，你確認後才入帳。",
+ dropTitle:"新增收據",dropSub:"相簿可一次選多張，電腦上也可以直接拖曳到這裡。你確認後才會入帳。",pickCam:"拍照",pickLib:"從相簿選擇",
  manualExp:"手動記一筆支出",manualInc:"記一筆收入（売上）",queueHint:"確認入帳的收據會出現在「仕訳帳」，照片一併保存，方便依電子帳簿保存法查詢。",
  fFrom:"取引日 起",fTo:"取引日 迄",fMin:"金額 下限",fMax:"金額 上限",fQ:"取引先・摘要",fAcc:"勘定科目",all:"全部",expJournal:"匯出仕訳帳 CSV",
  thDate:"日期",thDr:"借方",thAmt:"金額",thCr:"貸方",thDesc:"摘要・取引先",thQual:"適格",
@@ -545,8 +554,9 @@ async function saveEntry(d){
 }
 
 // ===== scanning =====
-const fileIn=$("#fileIn"),drop=$("#drop");
+const fileIn=$("#fileIn"),camIn=$("#camIn"),drop=$("#drop");
 fileIn.addEventListener("change",()=>{addFiles(fileIn.files);fileIn.value=""});
+camIn.addEventListener("change",()=>{addFiles(camIn.files);camIn.value=""});
 ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
 ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
 drop.addEventListener("drop",e=>addFiles(e.dataTransfer.files));
