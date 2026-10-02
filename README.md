@@ -3,13 +3,19 @@
 拍日本收據 → AI 讀取 → 自動產生複式簿記仕訳、科目別集計、インボイス區分，可匯出 CSV。
 支援青色／白色申告，介面可切換 English／日本語／中文。
 
-整套由三個服務組成，個人使用量都在免費額度內，只有 AI 辨識依用量付費：
+**完全免費就能使用。** 讀收據有兩種模式，網站會自動選擇：
+
+| 模式 | 條件 | 費用 | 準確度 |
+|---|---|---|---|
+| **免費模式**（預設） | 沒有設定 `ANTHROPIC_API_KEY` | 免費。在你的手機或電腦上用 Tesseract OCR 辨識，第一次會下載約 15 MB 日文資料 | 日期、合計、登録番号大多讀得到；10%／8% 拆分和科目需要多核對 |
+| **Claude 模式** | 在 Vercel 設定 `ANTHROPIC_API_KEY` | 每張約 US$0.01（約 ¥1.5） | 高，連品項摘要、科目都會判斷 |
+
+其他服務都用免費方案：
 
 | 服務 | 用途 | 費用 |
 |---|---|---|
-| **Vercel** | 放網站與 AI 辨識的伺服器程式 | Hobby 方案免費 |
+| **Vercel** | 放網站 | Hobby 方案免費 |
 | **Supabase** | 登入、資料庫、收據照片 | Free 方案免費（照片空間 1 GB，約 3,000 張收據） |
-| **Anthropic API** | 讀收據 | 每張約 US$0.01（約 ¥1.5），預設模型 Claude Sonnet 5.5 |
 
 ---
 
@@ -23,7 +29,9 @@
    - **Project URL**（例如 `https://abcd1234.supabase.co`）
    - **anon public** key
 
-### 2. Anthropic：取得 API 金鑰
+### 2.（可省略）Anthropic：取得 API 金鑰
+只想用免費模式就跳過這一步，之後隨時可以補上。
+
 1. 到 <https://console.anthropic.com> 註冊並儲值（最少 US$5 就能用很久）。
 2. **API Keys → Create Key**，複製金鑰（`sk-ant-...`），只會顯示一次。
 3. 建議在 **Limits** 設定每月上限，例如 US$10，避免意外。
@@ -38,10 +46,10 @@
 
    | Name | Value |
    |---|---|
-   | `ANTHROPIC_API_KEY` | 第 2 步的金鑰 |
+   | `ANTHROPIC_API_KEY` | （可省略）第 2 步的金鑰。不填就是免費模式 |
    | `SUPABASE_URL` | 第 1 步的 Project URL |
    | `SUPABASE_ANON_KEY` | 第 1 步的 anon public key |
-   | `ALLOWED_EMAILS` | 你自己的 email（多人用逗號分隔）。只有這些人能使用 AI 辨識 |
+   | `ALLOWED_EMAILS` | 你自己的 email（多人用逗號分隔）。Claude 模式下只有這些人能使用 AI 辨識 |
    | `ANTHROPIC_MODEL` | （可省略）想省錢可填 `claude-haiku-4-5-20251001`，約便宜一半 |
 
 3. 按 **Deploy**。完成後會得到網址，例如 `https://receipt-ledger.vercel.app`。
@@ -73,6 +81,7 @@
 
 ```
 index.html            網站本體（介面、記帳邏輯、三語翻譯）
+ocr.js                免費模式：裝置上的日文 OCR 與收據解析規則
 api/scan.js           伺服器：驗證登入後，把收據照片送給 Claude 讀取
 api/config.js         伺服器：提供瀏覽器公開的 Supabase 設定
 supabase/schema.sql   資料表、修改紀錄、權限、照片空間
@@ -83,6 +92,8 @@ vercel.json           伺服器設定（AI 辨識最長 60 秒）
 
 ## 常見問題
 
+- **免費模式讀錯金額**：收據盡量拍平、光線充足、只拍收據本身。辨識後可直接在表單修改，按「確認入帳」前都不會記帳。
+- **想從免費模式升級**：在 Vercel 加上 `ANTHROPIC_API_KEY`，到 **Deployments** 按 **Redeploy** 即可，帳冊資料不受影響。
 - **畫面顯示「網站尚未設定完成」**：Vercel 的 `SUPABASE_URL`／`SUPABASE_ANON_KEY` 沒設定或拼錯。修改後到 Vercel 的 **Deployments** 按 **Redeploy**。
 - **AI 辨識顯示「這個帳號不能使用 AI 辨識」**：把你的 email 加進 `ALLOWED_EMAILS`，再 Redeploy。
 - **AI 辨識顯示 Anthropic API 401／400**：API 金鑰錯誤或帳戶餘額不足。

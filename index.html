@@ -153,6 +153,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="/ocr.js"></script>
 </body>
 </html>
 </head>
@@ -306,7 +307,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 (function(){
 // ===== i18n =====
 const I18N={
-en:{authSub:"Sign in to your own ledger. Your receipts and books are stored in your Supabase database.",email:"Email",password:"Password (8+ characters)",signIn:"Sign in",signUp:"Create account",signOut:"Sign out",noAcct:"No account yet? Create one",haveAcct:"Have an account? Sign in",checkEmail:"Check your inbox and open the confirmation link, then sign in.",authErr:"Sign-in failed: ",eServer:"The server could not read the receipt: ",eAuthApi:"Your account isn't allowed to use AI reading. Ask the site owner to add your email.",eCfg:"The site isn't configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY on the server.",eyebrow:"Japanese sole proprietor · 個人事業主",yearLabel:"Tax year (Jan–Dec)",tabScan:"Scan receipts",tabJournal:"Journal",tabSummary:"Summary",tabSettings:"Settings",
+en:{ocrReading:"Reading on your device (free)…",ocrLoading:"Downloading Japanese text data (first time only, about 15 MB)…",ocrFilled:"Read on your device — check the amounts and account",eOcr:"On-device reading failed: ",authSub:"Sign in to your own ledger. Your receipts and books are stored in your Supabase database.",email:"Email",password:"Password (8+ characters)",signIn:"Sign in",signUp:"Create account",signOut:"Sign out",noAcct:"No account yet? Create one",haveAcct:"Have an account? Sign in",checkEmail:"Check your inbox and open the confirmation link, then sign in.",authErr:"Sign-in failed: ",eServer:"The server could not read the receipt: ",eAuthApi:"Your account isn't allowed to use AI reading. Ask the site owner to add your email.",eCfg:"The site isn't configured yet. Set SUPABASE_URL and SUPABASE_ANON_KEY on the server.",eyebrow:"Japanese sole proprietor · 個人事業主",yearLabel:"Tax year (Jan–Dec)",tabScan:"Scan receipts",tabJournal:"Journal",tabSummary:"Summary",tabSettings:"Settings",
  dropTitle:"Take a photo or choose receipts",dropSub:"Select several at once. AI reads the date, store, amounts, 10% / 8% tax rates and invoice registration number. Nothing is posted until you confirm.",
  manualExp:"Add an expense manually",manualInc:"Record income (sales)",queueHint:"Confirmed receipts appear in the Journal. Photos are kept with each entry so you can search them later, as the Electronic Bookkeeping Act requires.",
  fFrom:"Date from",fTo:"Date to",fMin:"Amount min",fMax:"Amount max",fQ:"Vendor / memo",fAcc:"Account",all:"All",expJournal:"Export journal CSV",
@@ -336,7 +337,7 @@ en:{authSub:"Sign in to your own ledger. Your receipts and books are stored in y
  noImg:"This view can't send images to the AI. Please enter it by hand.",noAI:"AI reading is off. Please enter it by hand.",eGrant:"You didn't allow AI on this page. Enter by hand, or reload and allow it.",eRate:"Too many AI requests. Try again shortly or enter by hand.",eJson:"The AI reply was malformed. Retry or enter by hand.",eImg:"This image couldn't be read (format or size).",eAI:"AI reading failed: ",
  noDl:"Downloads aren't available in this view.",exported:"Exported {f}",expFail:"Export failed: ",setLocal:"Not connected to storage; settings apply to this visit only.",
  era:"Reiwa",csvJ:"journal",csvS:"summary",month:"Month",income:"Income",expense:"Expense"},
-ja:{authSub:"自分の帳簿にログインします。レシートと帳簿はあなたの Supabase データベースに保存されます。",email:"メールアドレス",password:"パスワード（8文字以上）",signIn:"ログイン",signUp:"アカウント作成",signOut:"ログアウト",noAcct:"アカウントを作成",haveAcct:"ログインに戻る",checkEmail:"確認メールのリンクを開いてから、ログインしてください。",authErr:"ログインできませんでした：",eServer:"サーバーで読み取りに失敗しました：",eAuthApi:"このアカウントはAI読取を利用できません。管理者にメールアドレスの追加を依頼してください。",eCfg:"サイトの設定が未完了です。サーバーに SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。",eyebrow:"個人事業主の帳簿",yearLabel:"年分（1月〜12月）",tabScan:"レシート撮影",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
+ja:{ocrReading:"端末内で読み取り中（無料）…",ocrLoading:"日本語データをダウンロード中（初回のみ・約15MB）…",ocrFilled:"端末内で読み取りました。金額と科目を確認してください",eOcr:"端末内の読み取りに失敗しました：",authSub:"自分の帳簿にログインします。レシートと帳簿はあなたの Supabase データベースに保存されます。",email:"メールアドレス",password:"パスワード（8文字以上）",signIn:"ログイン",signUp:"アカウント作成",signOut:"ログアウト",noAcct:"アカウントを作成",haveAcct:"ログインに戻る",checkEmail:"確認メールのリンクを開いてから、ログインしてください。",authErr:"ログインできませんでした：",eServer:"サーバーで読み取りに失敗しました：",eAuthApi:"このアカウントはAI読取を利用できません。管理者にメールアドレスの追加を依頼してください。",eCfg:"サイトの設定が未完了です。サーバーに SUPABASE_URL と SUPABASE_ANON_KEY を設定してください。",eyebrow:"個人事業主の帳簿",yearLabel:"年分（1月〜12月）",tabScan:"レシート撮影",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
  dropTitle:"レシートを撮影・選択",dropSub:"複数枚まとめて選べます。AIが取引日・店名・金額・10%／8%税率・登録番号を読み取ります。確認するまで記帳されません。",
  manualExp:"経費を手入力",manualInc:"売上を記帳",queueHint:"確定したレシートは仕訳帳に入ります。画像も一緒に保存され、電子帳簿保存法の検索要件に対応します。",
  fFrom:"取引日（から）",fTo:"取引日（まで）",fMin:"金額（下限）",fMax:"金額（上限）",fQ:"取引先・摘要",fAcc:"勘定科目",all:"すべて",expJournal:"仕訳帳をCSV出力",
@@ -366,7 +367,7 @@ ja:{authSub:"自分の帳簿にログインします。レシートと帳簿は�
  noImg:"この画面ではAIに画像を送れません。手入力してください。",noAI:"AI読取が無効です。手入力してください。",eGrant:"AIの利用が許可されていません。手入力するか、再読み込みして許可してください。",eRate:"AIの利用が集中しています。少し待つか手入力してください。",eJson:"AIの応答形式が不正です。再読取または手入力してください。",eImg:"この画像を読み取れません（形式またはサイズ）。",eAI:"AI読取に失敗しました：",
  noDl:"この画面ではダウンロードできません。",exported:"{f} を出力しました",expFail:"出力に失敗しました：",setLocal:"保存先に未接続のため、設定は今回のみ有効です。",
  era:"令和",csvJ:"仕訳帳",csvS:"科目別集計",month:"月",income:"収入",expense:"経費"},
-zh:{authSub:"登入你自己的帳冊。收據與帳冊存放在你的 Supabase 資料庫。",email:"電子郵件",password:"密碼（8 個字元以上）",signIn:"登入",signUp:"建立帳號",signOut:"登出",noAcct:"還沒有帳號？建立一個",haveAcct:"已有帳號？登入",checkEmail:"請到信箱打開確認連結，再回來登入。",authErr:"登入失敗：",eServer:"伺服器讀取收據失敗：",eAuthApi:"這個帳號不能使用 AI 辨識，請網站管理者把你的 email 加入允許名單。",eCfg:"網站尚未設定完成，請在伺服器設定 SUPABASE_URL 與 SUPABASE_ANON_KEY。",eyebrow:"日本個人事業主帳冊",yearLabel:"年分（1月〜12月）",tabScan:"拍收據",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
+zh:{ocrReading:"在你的裝置上辨識中（免費）…",ocrLoading:"下載日文辨識資料中（僅第一次，約 15 MB）…",ocrFilled:"已在裝置上辨識，請核對金額與科目",eOcr:"裝置上辨識失敗：",authSub:"登入你自己的帳冊。收據與帳冊存放在你的 Supabase 資料庫。",email:"電子郵件",password:"密碼（8 個字元以上）",signIn:"登入",signUp:"建立帳號",signOut:"登出",noAcct:"還沒有帳號？建立一個",haveAcct:"已有帳號？登入",checkEmail:"請到信箱打開確認連結，再回來登入。",authErr:"登入失敗：",eServer:"伺服器讀取收據失敗：",eAuthApi:"這個帳號不能使用 AI 辨識，請網站管理者把你的 email 加入允許名單。",eCfg:"網站尚未設定完成，請在伺服器設定 SUPABASE_URL 與 SUPABASE_ANON_KEY。",eyebrow:"日本個人事業主帳冊",yearLabel:"年分（1月〜12月）",tabScan:"拍收據",tabJournal:"仕訳帳",tabSummary:"集計・決算",tabSettings:"設定",
  dropTitle:"拍照或選擇收據",dropSub:"可一次選多張。AI 會讀出日期、店名、金額、10%／8% 稅率與インボイス登録番号，你確認後才入帳。",
  manualExp:"手動記一筆支出",manualInc:"記一筆收入（売上）",queueHint:"確認入帳的收據會出現在「仕訳帳」，照片一併保存，方便依電子帳簿保存法查詢。",
  fFrom:"取引日 起",fTo:"取引日 迄",fMin:"金額 下限",fMax:"金額 上限",fQ:"取引先・摘要",fAcc:"勘定科目",all:"全部",expJournal:"匯出仕訳帳 CSV",
@@ -420,7 +421,7 @@ const todayStr=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMo
 const isQualified=no=>/^T\d{13}$/.test(String(no||"").replace(/[\s-]/g,""));
 const opts=(arr,sel,lab)=>arr.map(a=>`<option value="${esc(a)}" ${a===sel?"selected":""}>${esc(lab?lab(a):a)}</option>`).join("");
 
-let sb=null,uid=null;const sample=true,canImages=true;
+let sb=null,uid=null,aiEnabled=false;const sample=true,canImages=true;
 let entries=[];
 let settings={name:"",filing:"blue65",ctax:"exempt",cash:"事業主借",card:"事業主借",shogaku:"0",hint:""};
 const DEDUCT={blue65:650000,blue55:550000,blue10:100000,white:0};
@@ -563,7 +564,14 @@ function addFiles(files){
 let pumping=false;
 async function pump(){if(pumping)return;pumping=true;try{for(const q of queue)if(q.status==="waiting")await processOne(q)}finally{pumping=false}}
 async function blobToB64(b){const buf=new Uint8Array(await b.arrayBuffer());let bin="";for(let i=0;i<buf.length;i+=0x8000)bin+=String.fromCharCode.apply(null,buf.subarray(i,i+0x8000));return btoa(bin)}
-async function scanReceipt(blob){
+async function scanReceipt(blob,q){
+  if(!aiEnabled){
+    const el=()=>document.getElementById("prog_"+q.id);
+    try{
+      return await window.ReceiptOCR.readReceipt(blob,{year,onProgress:m=>{const e=el();if(!e)return;
+        e.textContent=m.status==="recognizing text"?Math.round((m.progress||0)*100)+"%":(/load|initializ/.test(m.status||"")?t("ocrLoading"):"")}});
+    }catch(e){throw {code:"ocr",message:e&&e.message||String(e)}}
+  }
   const {data:{session}}=await sb.auth.getSession();
   const res=await fetch("/api/scan",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(session?session.access_token:"")},
     body:JSON.stringify({image:await blobToB64(blob),mediaType:blob.type||"image/jpeg",lang,year,hint:settings.hint||"",accounts:EXPENSE_ACCOUNTS})});
@@ -576,7 +584,7 @@ async function processOne(q){
   let blob;try{blob=await downscale(q.file)}catch(e){blob=q.file}q.blob=blob;
   const base={type:"expense",date:"",vendor:"",invoiceNo:"",items:"",amt10:0,amt8:0,amt0:0,debit:"消耗品費",credit:settings.card,bizRatio:100,memo:""};
   try{
-    const r=await scanReceipt(blob);
+    const r=await scanReceipt(blob,q);
     q.draft={...base,date:r.date||"",vendor:r.vendor||"",invoiceNo:(r.invoice_no||"").replace(/[\s-]/g,"").toUpperCase(),items:r.items||"",
       amt10:Math.round(+r.amount_10||0),amt8:Math.round(+r.amount_8||0),amt0:Math.round(+r.amount_other||0),
       debit:EXPENSE_ACCOUNTS.includes(r.account)?r.account:"雑費",credit:String(r.payment)==="cash"?settings.cash:settings.card,
@@ -584,8 +592,8 @@ async function processOne(q){
     if(totalOf(q.draft)===0&&r.total) q.draft.amt10=Math.round(+r.total);
     q.status="review";q.errKey=null;
   }catch(e){
-    const m={auth:"eAuthApi",rate_limited:"eRate",invalid_json:"eJson"};
-    q.status="manual";q.errKey=m[e&&e.code]||"eServer";q.errExtra=m[e&&e.code]?"":(e&&e.message||"");q.draft=base;
+    const m={auth:"eAuthApi",rate_limited:"eRate",invalid_json:"eJson",ocr:"eOcr"};
+    q.status="manual";q.errKey=m[e&&e.code]||"eServer";q.errExtra=(m[e&&e.code]&&e.code!=="ocr")?"":(e&&e.message||"");q.draft=base;
   }
   renderQueue();
 }
@@ -594,12 +602,12 @@ function renderQueue(){
   queue.forEach(q=>{
     const card=document.createElement("div");card.className="qcard";
     let right="";
-    if(q.status==="waiting"||q.status==="reading") right=`<div class="status">${q.status==="reading"?`<span class="spinner"></span>${t("reading")}`:t("waiting")}</div>`;
+    if(q.status==="waiting"||q.status==="reading") right=`<div class="status">${q.status==="reading"?`<span class="spinner"></span>${t(aiEnabled?"reading":"ocrReading")} <span class="num" id="prog_${q.id}"></span>`:t("waiting")}</div>`;
     else if(q.status==="saved") right=`<div class="status"><span class="chip ok">${t("posted")}</span><span class="muted">${esc(q.draft.date)} ${esc(q.draft.vendor)} ${yen(totalOf(q.draft))}</span></div>`;
     else{
       const c=q.draft.aiConfidence;
       const note=q.errKey?`<div class="banner warn small" style="margin:0 0 12px">${esc(t(q.errKey)+(q.errExtra||""))}</div>`:
-        `<div class="small" style="margin-bottom:10px">${c==="low"?`<span class="chip low">${t("lowConf")}</span> `:c?`<span class="chip inc">${t("aiFilled")}</span> `:""}${q.draft.aiNotes?`<span class="muted">${esc(q.draft.aiNotes)}</span>`:""}</div>`;
+        `<div class="small" style="margin-bottom:10px">${c==="low"?`<span class="chip low">${t("lowConf")}</span> `:c?`<span class="chip inc">${t(aiEnabled?"aiFilled":"ocrFilled")}</span> `:""}${q.draft.aiNotes?`<span class="muted">${esc(q.draft.aiNotes)}</span>`:""}</div>`;
       right=`${note}<div data-form>${formHTML(q.draft,q.id)}</div>
         <div class="row" style="margin-top:12px"><button class="btn primary" data-save>${t("confirm")}</button><button class="btn ghost" data-retry ${sample&&canImages?"":"hidden"}>${t("retry")}</button><button class="btn ghost" data-drop>${t("remove")}</button><span class="small" data-msg></span></div>`;
     }
@@ -799,6 +807,7 @@ async function onSession(session){
   try{
     const cfg=await (await fetch("/api/config")).json();
     if(!cfg.supabaseUrl||!cfg.supabaseAnonKey)throw 0;
+    aiEnabled=!!cfg.aiEnabled;
     sb=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey);
   }catch(e){$("#authView").hidden=false;$("#authForm").hidden=true;$("#aMsg").textContent=t("eCfg");return}
   sb.auth.onAuthStateChange((_ev,session)=>{setTimeout(()=>onSession(session),0)});
