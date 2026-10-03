@@ -6,7 +6,7 @@ const browser = Object.fromEntries(["window", "document", "navigator", "location
   "getComputedStyle", "structuredClone", "queueMicrotask", "performance", "AbortController", "Response", "Request", "Headers", "FormData", "globalThis", "self"].map((g) => [g, "readonly"]));
 const node = Object.fromEntries(["process", "Buffer", "module", "require", "__dirname", "console", "URL", "fetch", "setTimeout", "clearTimeout", "globalThis", "TextEncoder", "TextDecoder", "crypto", "structuredClone"].map((g) => [g, "readonly"]));
 // globals the page gets from its other <script> tags
-const pageLibs = Object.fromEntries(["supabase", "Tesseract", "ReceiptOCR", "Filing", "Books", "Imports", "Migrate", "Journal", "LedgerService", "Sync", "Accounts", "TaxRules", "Ledger", "Tips", "DocModel", "DocQuality", "DocPreprocess", "DocProviders", "DocPipeline", "DocDigits", "DocClassify", "DocExtract", "DocValidate", "DocConfidence", "DocReverify", "DocMerchant", "DocDuplicate", "DocTransaction", "DocGolden", "DocEvaluate", "pdfjsLib", "heic2any", "google", "gapi"].map((g) => [g, "readonly"]));
+const pageLibs = Object.fromEntries(["supabase", "Tesseract", "ReceiptOCR", "Filing", "Books", "Imports", "Migrate", "Journal", "LedgerService", "Sync", "Accounts", "TaxRules", "Ledger", "Tips", "DocModel", "DocQuality", "DocPreprocess", "DocProviders", "DocPipeline", "DocDigits", "DocClassify", "DocExtract", "DocValidate", "DocConfidence", "DocReverify", "DocMerchant", "DocDuplicate", "DocTransaction", "DocGolden", "DocEvaluate", "IncomeTax", "ConsumptionTax", "TaxCalendar", "TaxGuide", "pdfjsLib", "heic2any", "google", "gapi"].map((g) => [g, "readonly"]));
 
 const rules = {
   "no-undef": "error", "no-dupe-keys": "error", "no-dupe-args": "error", "no-duplicate-case": "error", "no-unreachable": "error",
@@ -20,7 +20,7 @@ const rules = {
 
 export default [
   { ignores: ["node_modules/**", "pdfjs/**", ".vercel/**"] },
-  { files: ["books.js", "filing.js", "ocr.js", "imports.js", "tips.js", "engine/**/*.js", "document-intelligence/**/*.js"], languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: { ...browser, module: "readonly" } }, rules },
+  { files: ["books.js", "filing.js", "ocr.js", "imports.js", "tips.js", "engine/**/*.js", "document-intelligence/**/*.js", "tax/**/*.js"], languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: { ...browser, module: "readonly" } }, rules },
   { files: [".check/index.inline.js"], languageOptions: { ecmaVersion: 2022, sourceType: "script", globals: { ...browser, ...pageLibs } }, rules: { ...rules, "no-unused-vars": ["error", { args: "none", caughtErrors: "none", vars: "local", varsIgnorePattern: "^_" }] } },
   { files: ["api/**/*.js", "tests/**/*.js", "scripts/**/*.mjs", "supabase/tests/**/*.mjs", "eslint.config.js"], languageOptions: { ecmaVersion: 2022, sourceType: "module", globals: node }, rules },
 ];
