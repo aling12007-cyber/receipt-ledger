@@ -59,3 +59,21 @@ test("statement layouts: signed 入出金 column, 受入/払出, 支払い/預�
   const c = K.parseCSV("日付,摘要,摘要内容,支払い金額,預かり金額,差引残高\n2026/9/2,カード,テスト,880,,1000\n");
   assert.equal(K.toTransactions(c, K.detect(c), "bank")[0].out, 880);
 });
+
+test("balance sheet: closing balances follow from the year's records (incl. book-only postings) and carry to next year", () => {
+  const Books = load("books.js");
+  const entries = [{ id: "s", type: "income", date: "2026-03-01", amt10: 55000, amt8: 0, amt0: 0, debit: "普通預金", credit: "売上高" },
+    { id: "e", type: "expense", date: "2026-04-01", amt10: 11000, amt8: 0, amt0: 0, debit: "通信費", credit: "普通預金", bizRatio: 100 },
+    { id: "p", type: "expense", date: "2026-05-01", amt10: 2200, amt8: 0, amt0: 0, debit: "消耗品費", credit: "事業主借", bizRatio: 100 }];
+  const dep = F.depreciation([], 2026);
+  const pl = F.profitLoss({ entries, year: 2026, totalOf: Books.totalOf, bizOf: Books.bizOf });
+  const extra = [{ date: "2026-06-30", lines: [{ account: "普通預金", dr: 30000, cr: 0 }, { account: "売掛金", dr: 0, cr: 30000 }] }];
+  const bs = F.balanceSheet({ entries, year: 2026, linesOf: Books.linesOf, open: { cash: 10000, bank: 200000, ar: 50000 }, close: {}, dep, income: pl.income, extra });
+  assert.equal(bs.diff, 0);
+  assert.deepEqual([bs.carry.cash, bs.carry.bank, bs.carry.ar], [10000, 200000 + 55000 - 11000 + 30000, 20000]);
+  assert.equal(bs.closeAdjusted, false);
+  // next year starts from these balances; 元入金 = assets − liabilities
+  const bs2 = F.balanceSheet({ entries, year: 2027, linesOf: Books.linesOf, open: bs.carry, close: {}, dep: F.depreciation([], 2027), income: 0 });
+  assert.equal(bs2.motoire, 10000 + 274000 + 20000);
+  assert.equal(bs2.diff, 0);
+});

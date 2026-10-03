@@ -153,13 +153,17 @@
   // ---------- 貸借対照表 ----------
   // Tracks the balance-sheet accounts the app uses. Unrecorded movements in cash / bank are treated the
   // usual way for sole proprietors: a shortfall is 事業主貸 (money taken for living costs), a surplus 事業主借.
-  const ASSET = ["現金", "普通預金", "売掛金"], LIAB = ["未払金"];
+  const ASSET = ["現金", "普通預金", "売掛金", "前払金"], LIAB = ["未払金", "借入金", "前受金", "預り金"];
   const num = (v) => (v === "" || v == null || isNaN(+v) ? null : Math.round(+v));
 
-  // ctx: { entries, year, linesOf, open:{cash,bank,ar,inv,prepaid,ap,loan,advance,deposit}, close:{cash,bank,ar,inv,ap}, dep (from depreciation), assets, income }
+  // ctx: { entries, year, linesOf, open:{cash,bank,ar,inv,prepaid,ap,loan,advance,deposit}, close:{cash,bank,ar,inv,ap}, dep (from depreciation), assets, income,
+  //        extra: journal entries posted straight into the books (入金・支払・振替), [{ date, lines: [{ account, dr, cr }] }] }
+  // The closing balances follow from the opening balances and this year's transactions; close.* only overrides them
+  // when the real bank book or cash count differs (the difference goes to 事業主貸 / 事業主借).
   function balanceSheet(ctx) {
     const o = ctx.open || {}, c = ctx.close || {};
-    const bal = { 現金: num(o.cash) || 0, 普通預金: num(o.bank) || 0, 売掛金: num(o.ar) || 0, 未払金: num(o.ap) || 0 };
+    const bal = { 現金: num(o.cash) || 0, 普通預金: num(o.bank) || 0, 売掛金: num(o.ar) || 0, 前払金: num(o.prepaid) || 0,
+      未払金: num(o.ap) || 0, 借入金: num(o.loan) || 0, 前受金: num(o.advance) || 0, 預り金: num(o.deposit) || 0 };
     let kashi = 0, kari = 0;
     const apply = (acc, amt, side) => {
       if (acc === "事業主貸") { kashi += side === "dr" ? amt : -amt; return; }
@@ -170,6 +174,10 @@
     for (const e of ctx.entries) {
       if (!String(e.date || "").startsWith(String(ctx.year))) continue;
       for (const l of ctx.linesOf(e)) { apply(l.dr, l.amt, "dr"); apply(l.cr, l.amt, "cr"); }
+    }
+    for (const e of ctx.extra || []) {
+      if (!String(e.date || "").startsWith(String(ctx.year))) continue;
+      for (const l of e.lines || []) { if (+l.dr) apply(l.account, Math.round(+l.dr), "dr"); if (+l.cr) apply(l.account, Math.round(+l.cr), "cr"); }
     }
     // fixed assets bought this year: dr asset / cr how it was paid
     for (const r of ctx.dep.rows) if (r.acquiredThisYear) apply(r.paidFrom || "事業主借", Math.round(+r.cost || 0), "cr");
@@ -191,16 +199,17 @@
       fixedClose[k] = (fixedClose[k] || 0) + r.close;
     }
     const inv0 = num(o.inv) || 0, inv1 = num(c.inv) ?? inv0;
-    const A = (cashV, bankV, arV, invV, fixed, ks) => {
-      const rows = [["現金", cashV], ["その他の預金（普通預金）", bankV], ["売掛金", arV], ["棚卸資産", invV], ["前払金", num(o.prepaid) || 0]];
+    const A = (cashV, bankV, arV, invV, fixed, ks, preV) => {
+      const rows = [["現金", cashV], ["その他の預金（普通預金）", bankV], ["売掛金", arV], ["棚卸資産", invV], ["前払金", preV]];
       for (const k of ["建物附属設備", "機械装置", "車両運搬具", "工具器具備品"]) rows.push([k, fixed[k] || 0]);
       rows.push(["事業主貸", ks]);
       return rows;
     };
-    const L = (apV) => [["借入金", num(o.loan) || 0], ["未払金", apV], ["前受金", num(o.advance) || 0], ["預り金", num(o.deposit) || 0]];
-    const assetsOpen = A(num(o.cash) || 0, num(o.bank) || 0, num(o.ar) || 0, inv0, fixedOpen, 0);
-    const assetsClose = A(bal["現金"], bal["普通預金"], bal["売掛金"], inv1, fixedClose, kashi);
-    const liabOpen = L(num(o.ap) || 0), liabClose = L(bal["未払金"]);
+    const L = (b) => [["借入金", b.loan], ["未払金", b.ap], ["前受金", b.advance], ["預り金", b.deposit]];
+    const assetsOpen = A(num(o.cash) || 0, num(o.bank) || 0, num(o.ar) || 0, inv0, fixedOpen, 0, num(o.prepaid) || 0);
+    const assetsClose = A(bal["現金"], bal["普通預金"], bal["売掛金"], inv1, fixedClose, kashi, bal["前払金"]);
+    const liabOpen = L({ loan: num(o.loan) || 0, ap: num(o.ap) || 0, advance: num(o.advance) || 0, deposit: num(o.deposit) || 0 });
+    const liabClose = L({ loan: bal["借入金"], ap: bal["未払金"], advance: bal["前受金"], deposit: bal["預り金"] });
     const sum = (rows) => rows.reduce((s, r) => s + r[1], 0);
     const motoire = sum(assetsOpen) - sum(liabOpen);
     const capOpen = [["事業主借", 0], ["元入金", motoire], ["青色申告特別控除前の所得金額", 0]];
@@ -210,7 +219,10 @@
       assetsOpen, assetsClose, liabOpen, liabClose, capOpen, capClose, kashi, kari, motoire, adj,
       totals: { assetsOpen: tA0, assetsClose: tA1, liabOpen: tL0, liabClose: tL1 },
       diff: tA1 - tL1,
-      closeEntered: bank != null || cash != null,
+      closeEntered: true,                                   // computed from the year's transactions
+      closeAdjusted: bank != null || cash != null || ar != null || ap != null,
+      // what the next year starts with (翌年の期首残高)
+      carry: { cash: bal["現金"], bank: bal["普通預金"], ar: bal["売掛金"], inv: inv1, prepaid: bal["前払金"], ap: bal["未払金"], loan: bal["借入金"], advance: bal["前受金"], deposit: bal["預り金"] },
     };
   }
 
