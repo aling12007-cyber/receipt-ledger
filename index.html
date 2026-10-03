@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#23467A">
+<meta name="theme-color" content="#14294A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Ledger">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -12,27 +12,33 @@
 <title>Receipt Ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
 img{max-width:100%}
 [hidden]{display:none!important}
-/* Layout: one ledger column (max 980px) — sticky tab bar, scan queue as cards, journal as ruled table. Indigo (藍) for action, vermilion (朱) only for the 印 stamp + warnings. */
+/* Cloud-accounting style: deep navy sidebar (the one strong element), quiet white work area on cool grey,
+   one sans family (Noto Sans JP / TC) with IBM Plex Sans tabular figures for amounts. Red only for expenses and problems. */
 :root{
-  --paper:#EEF1F4; --sheet:#FFFFFF; --ink:#18212C; --muted:#5A6676; --rule:#D3DAE2; --rule-strong:#AEB9C6;
-  --ai:#23467A; --ai-soft:#E3EAF4; --shu:#C2412A; --shu-soft:#F7E6E2; --ok:#2A7A57; --ok-soft:#E1F1E9; --warn:#9A6A0B; --warn-soft:#F6EED9;
-  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
-  --f-body:"Noto Sans TC","PingFang TC","Hiragino Sans","Microsoft JhengHei",system-ui,sans-serif;
-  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
-  --r:6px;
+  --paper:#F3F5F8; --sheet:#FFFFFF; --ink:#172033; --muted:#5D6A7E; --rule:#E2E7EE; --rule-strong:#C9D2DD;
+  --ai:#1F4E8C; --ai-strong:#173D70; --ai-soft:#EAF0F9; --shu:#C23A2B; --shu-soft:#FBEAE7; --ok:#1F7A52; --ok-soft:#E3F3EA; --warn:#A0660A; --warn-soft:#FBF1DE;
+  --nav:#14294A; --nav-ink:#D7E0EE; --nav-muted:#8C9BB4; --nav-hover:#1D3760; --nav-active:#26487A;
+  --head:#F7F9FC; --shadow:0 1px 2px rgba(16,32,60,.05);
+  --f-display:"Noto Sans JP","Noto Sans CJK JP","Noto Sans TC","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+  --f-body:"Noto Sans JP","Noto Sans CJK JP","Noto Sans TC","Hiragino Sans","Yu Gothic UI","Microsoft JhengHei",system-ui,sans-serif;
+  --f-num:"IBM Plex Sans","Noto Sans JP",system-ui,sans-serif;
+  --r:6px; --r-card:10px;
 }
+:root:lang(zh-Hant){--f-display:"Noto Sans TC","Noto Sans JP","PingFang TC",system-ui,sans-serif;--f-body:"Noto Sans TC","Noto Sans JP","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --paper:#11151B; --sheet:#19202A; --ink:#E4E9F0; --muted:#94A1B2; --rule:#2B3440; --rule-strong:#44505F;
-  --ai:#86AAE2; --ai-soft:#1E2B3E; --shu:#E9806A; --shu-soft:#3A2420; --ok:#62C495; --ok-soft:#18332A; --warn:#E3B65A; --warn-soft:#33291A; color-scheme:dark}}
+  --paper:#0F141C; --sheet:#171E29; --ink:#E5EAF1; --muted:#95A2B4; --rule:#273141; --rule-strong:#3B4759;
+  --ai:#8AB0EC; --ai-strong:#A9C6F2; --ai-soft:#1C2A40; --shu:#EE8A76; --shu-soft:#3A2420; --ok:#62C495; --ok-soft:#17322A; --warn:#E4B75C; --warn-soft:#33291A;
+  --nav:#0B1626; --nav-ink:#D7E0EE; --nav-muted:#7F8DA5; --nav-hover:#13233B; --nav-active:#1C3456; --head:#1B2330; --shadow:none; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --paper:#11151B; --sheet:#19202A; --ink:#E4E9F0; --muted:#94A1B2; --rule:#2B3440; --rule-strong:#44505F;
-  --ai:#86AAE2; --ai-soft:#1E2B3E; --shu:#E9806A; --shu-soft:#3A2420; --ok:#62C495; --ok-soft:#18332A; --warn:#E3B65A; --warn-soft:#33291A; color-scheme:dark}
+  --paper:#0F141C; --sheet:#171E29; --ink:#E5EAF1; --muted:#95A2B4; --rule:#273141; --rule-strong:#3B4759;
+  --ai:#8AB0EC; --ai-strong:#A9C6F2; --ai-soft:#1C2A40; --shu:#EE8A76; --shu-soft:#3A2420; --ok:#62C495; --ok-soft:#17322A; --warn:#E4B75C; --warn-soft:#33291A;
+  --nav:#0B1626; --nav-ink:#D7E0EE; --nav-muted:#7F8DA5; --nav-hover:#13233B; --nav-active:#1C3456; --head:#1B2330; --shadow:none; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6}
 .wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:20px 64px}
@@ -243,19 +249,112 @@ tr.voided td.num,tr.voided td.r{text-decoration:line-through}
   #tbTable tr.grp td{display:table-cell}
   #glTable th:nth-child(2),#glTable td:nth-child(2){display:none}
 }
+/* ===== Cloud-accounting theme (overrides the base rules above) ===== */
+body{font-size:14.5px;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-weight:700;letter-spacing:.01em}
+h2{font-size:1.08rem}h3{font-size:.95rem}
+.eyebrow{letter-spacing:.02em;text-transform:none;font-size:.74rem}
+.num,.kpi .v,.jtable td.amt,td.r,input.num{font-family:var(--f-num);font-variant-numeric:tabular-nums lining-nums}
+.wrap{max-width:1160px}
+.sheet{border-radius:var(--r-card);box-shadow:var(--shadow)}
+.pad{padding:18px 20px}
+/* brand mark: a calm navy tile instead of the tilted seal */
+.stamp{background:var(--ai);color:#fff;border:0;border-radius:8px;transform:none;font-family:var(--f-display);font-weight:700;width:36px;height:36px;font-size:1rem}
+.side .stamp{background:#fff;color:var(--nav)}
+/* sidebar */
+.side{background:var(--nav);border-right:0;color:var(--nav-ink)}
+.side-brand{border-bottom:1px solid rgba(255,255,255,.08);padding:18px 18px 16px}
+.side .eyebrow{color:var(--nav-muted)}
+.side-name{font-family:var(--f-display);font-weight:700;color:#fff;font-size:.98rem}
+.sidenav{padding:12px 10px 24px}
+.sidenav .navgrp{color:var(--nav-muted);font-size:.72rem;padding:16px 12px 6px;letter-spacing:.04em}
+.sidenav button{color:var(--nav-ink);border-left:0;border-radius:6px;padding:9px 12px;font-size:.9rem;display:flex;align-items:center;gap:10px}
+.sidenav button:hover{background:var(--nav-hover);color:#fff}
+.sidenav button[aria-current="page"]{background:var(--nav-active);color:#fff;font-weight:500;box-shadow:inset 3px 0 0 #7FB2FF}
+.sidenav button:focus-visible{outline:2px solid #7FB2FF;outline-offset:-2px}
+.sidenav button::before{content:"";width:16px;height:16px;flex:none;background:currentColor;opacity:.85;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.sidenav button[data-tab="summary"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='3' y='3' width='7' height='9' rx='1'/%3E%3Crect x='14' y='3' width='7' height='5' rx='1'/%3E%3Crect x='14' y='12' width='7' height='9' rx='1'/%3E%3Crect x='3' y='16' width='7' height='5' rx='1'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="entry"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 8v8M8 12h8'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="journal"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M4 4h16v16H4zM4 9h16M4 14h16M10 4v16'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="ledger"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M5 4h11l3 3v13H5z'/%3E%3Cpath d='M8 10h8M8 14h8M8 18h5'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="scan"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M6 3h12v18l-3-2-3 2-3-2-3 2z'/%3E%3Cpath d='M9 8h6M9 12h6'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="tb"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M12 3v18M5 7h14M7 7l-3 7h6zM17 7l-3 7h6z'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="filing"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M6 3h9l4 4v14H6z'/%3E%3Cpath d='M9 13l2 2 4-4'/%3E%3C/svg%3E")}
+.sidenav button[data-tab="settings"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1'/%3E%3C/svg%3E")}
+/* header bar */
+@media (min-width:960px){
+  .main header.top{position:sticky;top:0;z-index:10;background:var(--paper);margin:0 -16px;padding:12px 16px;border-bottom:1px solid var(--rule)}
+}
+.toolbar label.f{flex-direction:row;align-items:center;gap:8px}
+.toolbar select{width:auto;min-width:150px}
+.pagetitle{font-size:1.4rem;font-weight:700;margin:22px 0 16px}
+/* controls */
+.btn{border-radius:var(--r);font-size:.9rem;min-height:38px;padding:8px 14px;border-color:var(--rule-strong)}
+.btn:hover{border-color:var(--ai);color:var(--ai)}
+.btn.primary{background:var(--ai);border-color:var(--ai);color:#fff;box-shadow:var(--shadow)}
+.btn.primary:hover{background:var(--ai-strong);border-color:var(--ai-strong);color:#fff}
+.btn.ghost:hover{background:var(--ai-soft)}
+.btn.danger:hover{background:var(--shu-soft);color:var(--shu);border-color:var(--shu)}
+input,select,textarea{background:var(--sheet);border-color:var(--rule-strong);border-radius:var(--r);font-size:14.5px;padding:8px 10px}
+input:hover,select:hover,textarea:hover{border-color:#9FB0C5}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:0;border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
+label.f{font-size:.78rem;font-weight:500}
+.seg{border-radius:var(--r)}
+.seg button[aria-checked="true"]{background:var(--ai);color:#fff}
+/* tables: ledger-like, figures right-aligned in tabular numerals */
+table{font-size:.86rem}
+th{background:var(--head);color:var(--muted);font-size:.74rem;font-weight:600;letter-spacing:.02em;border-bottom:1px solid var(--rule);padding:9px 12px}
+td{padding:9px 12px;border-bottom:1px solid var(--rule)}
+tbody tr.clickable:hover{background:var(--ai-soft)}
+tfoot td{background:var(--head);border-top:1px solid var(--rule-strong)}
+.jtable tr.grp td{background:var(--head);color:var(--ink);font-weight:600}
+.filters{background:var(--head);border-bottom:1px solid var(--rule);border-radius:var(--r-card) var(--r-card) 0 0}
+/* key figures */
+.kpis{gap:12px;background:none;border:0;border-radius:0;overflow:visible}
+.kpi{border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:var(--shadow);padding:16px 18px}
+.kpi .v{font-size:1.55rem;font-weight:600;letter-spacing:-.01em;margin-top:2px}
+.kpi .eyebrow{font-size:.78rem;color:var(--muted)}
+.bar i.s{background:var(--ai)}.bar i.e{background:#E07A6B;opacity:1}
+/* notices and chips */
+.banner{border-radius:var(--r-card);border-color:var(--rule)}
+.banner.warn{border-color:#EBCB8B}.banner.err{border-color:#F0B2A8}
+.note{border-radius:var(--r);border:1px solid #EBCB8B;border-left-width:3px}
+.note.info{border-color:#C6D6EE}
+.chip{border:0;font-weight:600;padding:2px 8px}
+.drop{border:1.5px dashed var(--rule-strong);border-radius:var(--r-card);background:var(--sheet)}
+.drop .big{font-family:var(--f-display);font-weight:700}
+.preview-lines{background:var(--head);border-style:solid;border-color:var(--rule)}
+dialog{border-radius:var(--r-card);border-color:var(--rule);box-shadow:0 20px 50px rgba(16,32,60,.25)}
+dialog .hd{background:var(--head);border-radius:var(--r-card) var(--r-card) 0 0}
+.toast{border-radius:var(--r);box-shadow:0 8px 24px rgba(16,32,60,.25)}
+.qcard{padding:18px 20px}
+.bottombar{box-shadow:0 -1px 0 var(--rule)}
+.side-foot{display:none;padding:12px 18px 24px;border-top:1px solid rgba(255,255,255,.08);gap:10px;flex-direction:column;align-items:flex-start}
+.side-foot .langsw{border-color:rgba(255,255,255,.2);background:transparent}
+.side-foot .langsw button{color:var(--nav-ink)}.side-foot .langsw button+button{border-left-color:rgba(255,255,255,.2)}
+.side-foot .langsw button[aria-pressed="true"]{background:#fff;color:var(--nav)}
+.side-foot .btn.ghost{color:var(--nav-ink);padding-left:0}
+@media (max-width:959px){
+  .side-foot{display:flex}
+  .main header.top{flex-wrap:nowrap;align-items:center;justify-content:space-between;padding-block:4px}
+  .main header.top .stamp{width:32px;height:32px;font-size:.9rem}
+  .main header.top .brand{min-width:0;gap:10px}
+  .main header.top h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .main header.top .toolbar .langsw,.main header.top #signOut{display:none}
+  .main header.top .toolbar select{min-width:0;width:auto;font-size:13px;padding:6px 8px}
+  .pagetitle{font-size:1.25rem;margin:12px 0 12px}
+}
+@media (max-width:640px){#jTable{min-width:640px}#jTable td,#jTable th{white-space:nowrap}}
 </style>
 <style>
-html[lang="ja"]{--f-body:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;--f-display:"Noto Serif JP","Hiragino Mincho ProN",serif}
-html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 .langsw{display:inline-flex;border:1px solid var(--rule-strong);border-radius:var(--r);overflow:hidden;background:var(--sheet)}
 .langsw button{appearance:none;border:0;background:none;font:inherit;font-size:.82rem;color:var(--muted);padding:6px 12px;cursor:pointer;min-height:34px}
 .langsw button+button{border-left:1px solid var(--rule)}
 .langsw button[aria-pressed="true"]{background:var(--ai);color:var(--sheet)}
 .langsw button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
-.toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .jp{display:block;font-size:.72rem;color:var(--muted)}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/ocr.js"></script>
@@ -321,6 +420,12 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
       <div class="navgrp" data-i18n="navGrpSettings"></div>
       <button data-tab="settings" data-i18n="tabSettings"></button>
     </nav>
+    <div class="side-foot">
+      <div class="langsw" role="group" aria-label="Language">
+        <button data-lang="en" aria-pressed="false">EN</button><button data-lang="ja" aria-pressed="false">日本語</button><button data-lang="zh" aria-pressed="false">中文</button>
+      </div>
+      <button class="btn ghost" id="sideSignOut" data-i18n="signOut"></button>
+    </div>
   </aside>
   <div class="main wrap">
   <header class="top">
@@ -2125,6 +2230,7 @@ $("#authForm").addEventListener("submit",async e=>{
   msg.textContent="";
 });
 $("#signOut").onclick=async()=>{await sb.auth.signOut()};
+$("#sideSignOut").onclick=()=>$("#signOut").click();
 async function onSession(session){
   const signedIn=!!session;$("#authView").hidden=signedIn;$("#appView").hidden=!signedIn;
   if(!signedIn){uid=null;entries=[];return}
