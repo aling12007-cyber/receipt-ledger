@@ -6,15 +6,19 @@
 
   // ---------- text normalisation ----------
   function normalize(text) {
-    return String(text || "")
+    let s = String(text || "")
       .replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
       .replace(/[，､]/g, ",").replace(/[．]/g, ".").replace(/[／]/g, "/").replace(/[：]/g, ":")
       .replace(/[％]/g, "%").replace(/[￥]/g, "¥").replace(/[－―ー−](?=\d)/g, "-")
-      .replace(/\r/g, "")
-      // common OCR confusions next to digits: o/O→0, l/I/|→1, S→5 (only between/after digits)
-      .replace(/(?<=\d[,.]?\s?\d{0,2})[oO](?=\d|\b)/g, "0")
-      .replace(/(?<=\d)[oO]/g, "0").replace(/[oO](?=\d{2})/g, "0")
-      .replace(/(?<=\d)[lI|](?=\d)/g, "1");
+      .replace(/\r/g, "");
+    // common OCR confusions next to digits: o/O→0, l/I/|→1 — repeated, so "11,8OO" becomes 11,800 (not 11,80O)
+    for (let k = 0, prev = ""; k < 4 && prev !== s; k++) {
+      prev = s;
+      s = s.replace(/(?<=\d[,.]?\s?\d{0,2})[oO](?=\d|\b)/g, "0")
+        .replace(/(?<=\d)[oO]/g, "0").replace(/[oO](?=\d{2})/g, "0")
+        .replace(/(?<=\d)[lI|](?=\d)/g, "1");
+    }
+    return s;
   }
   const toInt = (s) => parseInt(String(s).replace(/[^\d]/g, ""), 10);
   // amounts like "¥1,180" "1,180円" "1180" (allow OCR spaces inside the number)
@@ -723,6 +727,35 @@
     const { data } = await w.recognize(canvas, {}, { text: true, blocks: true });
     return { text: cleanText(data.text), langs, psm, ...collect(data, canvas) };
   }
+  /**
+   * Re-read one field: crop its box from the processed image, enlarge, enhance, read as a single line.
+   * digits: limit to 0-9 , ¥ 円 - (amounts). Used only for low-confidence fields, never for the whole page.
+   * @param {Blob} blob processed image @param {{ x: number, y: number, width: number, height: number }} bbox normalized
+   * @param {{ digits?: boolean }} [o]
+   */
+  async function readRegion(blob, bbox, o = {}) {
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const W = img.naturalWidth, H = img.naturalHeight, padY = bbox.height * 0.6, padX = bbox.height * 1.5;
+      const x0 = Math.max(0, (bbox.x - padX) * W), y0 = Math.max(0, (bbox.y - padY) * H);
+      const x1 = Math.min(W, (bbox.x + bbox.width + padX) * W), y1 = Math.min(H, (bbox.y + bbox.height + padY) * H);
+      const k = Math.max(2, Math.min(5, 72 / Math.max(1, bbox.height * H)));   // text about 70 px high
+      const c = document.createElement("canvas"); c.width = Math.round((x1 - x0) * k); c.height = Math.round((y1 - y0) * k);
+      const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0, 0, 0, c.width, c.height);
+      let canvas = c;
+      const DP = root.DocPreprocess;
+      if (DP) canvas = DP.toCanvas(DP.sharpen(DP.stretch(DP.fromCanvas(c)), 0.6));
+      const w = await getWorker("jpn+eng");
+      if (w.psm !== "7") { await w.setParameters({ tessedit_pageseg_mode: "7" }); w.psm = "7"; }
+      if (o.digits) await w.setParameters({ tessedit_char_whitelist: "0123456789,¥円-" });
+      try {
+        const { data } = await w.recognize(canvas, {}, { text: true, blocks: true });
+        return { text: cleanText(data.text).trim(), confidence: (data.confidence || 0) / 100 };
+      } finally { if (o.digits) await w.setParameters({ tessedit_char_whitelist: "" }); }
+    } finally { URL.revokeObjectURL(url); }
+  }
   // Receipt has a total and an item table (商品/単価/数量…) but no usable item rows were read
   const wantsTableRead = (r) => r.currency === "JPY" && !!r.total && !itemsExplain(r.item_details, r.total) && /(単価|数量|商品|品名|品目|明細|金額|QTY|PRICE)/i.test(r.raw_text || "");
   async function readReceipt(blob, opts) {
@@ -815,7 +848,7 @@
     return out;
   }
 
-  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount, storeAccountOf, guessAccount, applyItems, itemsExplain, wantsTableRead };
+  const api = { needsSecondPass, mergeResults, parseReceiptText, readReceipt, readRegion, normalize, scriptOf, detectCurrency, prepare, summaryFor, extractItems, extractItemDetails, splitByAccount, itemAccount, storeAccountOf, guessAccount, applyItems, itemsExplain, wantsTableRead };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ReceiptOCR = api;
 })(typeof window !== "undefined" ? window : globalThis);

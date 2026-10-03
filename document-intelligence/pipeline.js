@@ -61,10 +61,17 @@
       if (t) { readings.push({ provider: "pdf-text", kind: "text", model: "pdf.js", parsed: t, result: t, confidence: 0.95 }); log.push("pdf-text"); }
     }
     let localResult = null;
+    let localError = null;
     if (o.mode !== "ai" && o.local && !readings.some((r) => r.kind === "text")) {
-      localResult = await o.local();
-      readings.push(...localReadings(localResult, o.parse).map((rd) => ({ ...rd, result: localResult })));
-      log.push("local");
+      // on-device OCR can fail (engine download, memory): with a vision provider the pipeline carries on without it
+      try {
+        localResult = await o.local();
+        readings.push(...localReadings(localResult, o.parse).map((rd) => ({ ...rd, result: localResult })));
+        log.push("local");
+      } catch (e) {
+        if (!(o.vision && o.mode === "auto")) throw e;
+        localError = e; log.push("local-failed");
+      }
     }
     let visionResult = null, why = null;
     if (o.vision && (o.mode === "ai" || o.mode === "auto")) {
@@ -83,7 +90,7 @@
         }
       }
     }
-    if (!readings.length) throw Object.assign(new Error("no reading"), { code: "ocr" });
+    if (!readings.length) throw localError || Object.assign(new Error("no reading"), { code: "ocr" });
     const c = combine(readings);
     // the local OCR words / passes stay with the result (bounding boxes for the review screen)
     if (localResult && localResult.ocr) c.r.ocr = localResult.ocr;

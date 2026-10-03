@@ -53,3 +53,11 @@ test("vision failing falls back to the local reading; with nothing at all it is 
   assert.ok(r.pipeline.includes("vision-failed"));
   await assert.rejects(D.run({ mode: "ai", parse, vision: async () => { throw new Error("down"); } }));
 });
+
+test("on-device OCR failing in auto mode falls back to vision", async () => {
+  const r = await D.run({ mode: "auto", parse, local: async () => { throw new Error("engine download failed"); },
+    vision: async () => ({ date: "2026-09-28", total: 700, vendor: "Z", confidence: "high" }) });
+  assert.equal(r.total, 700);
+  assert.deepEqual(r.pipeline, ["local-failed", "vision"]);
+  await assert.rejects(D.run({ mode: "local", parse, local: async () => { throw new Error("x"); } }));
+});

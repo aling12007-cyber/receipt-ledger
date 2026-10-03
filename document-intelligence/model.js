@@ -29,16 +29,18 @@
   const canMove = (from, to) => (NEXT[from] || []).includes(to);
 
   /** @typedef {{ x: number, y: number, width: number, height: number }} BBox */
-  /** @typedef {{ value: any, confidence: number, bbox: BBox|null, source: string, raw?: string }} FieldValue */
+  /** @typedef {{ value: any, confidence: number, bbox: BBox|null, source: string, raw?: string, corrected?: string[] }} FieldValue */
 
   /**
    * @param {any} value
-   * @param {{ confidence?: number, bbox?: BBox|null, source?: string, raw?: string }} [o]
+   * @param {{ confidence?: number, bbox?: BBox|null, source?: string, raw?: string, corrected?: string[] }} [o]
    * @returns {FieldValue}
    */
   function field(value, o = {}) {
     const c = o.confidence == null ? (value == null || value === "" ? 0 : 0.5) : o.confidence;
-    return { value: value ?? null, confidence: Math.max(0, Math.min(1, c)), bbox: o.bbox || null, source: o.source || "", raw: o.raw ?? undefined };
+    const f = { value: value ?? null, confidence: Math.max(0, Math.min(1, c)), bbox: o.bbox || null, source: o.source || "", raw: o.raw ?? undefined };
+    if (o.corrected && o.corrected.length) f.corrected = o.corrected;
+    return f;
   }
 
   /** Scalar fields of an extraction (each one a FieldValue). */

@@ -10,6 +10,15 @@ const MAX_B64 = 4_000_000; // Vercel request bodies are capped at 4.5 MB // ~3 M
 // Prompt version: stored with every reading (document_runs.prompt_version). Bump it whenever the prompt changes.
 export const PROMPT_VERSION = "receipt-parser-v1";
 
+// Field verification: one low-confidence field, a small crop around it (cheaper than reading the whole receipt again).
+export const FIELD_PROMPT_VERSION = "field-verify-v1";
+const FIELD_LABEL = { total: "the total amount (合計)", subtotal: "the subtotal (小計)", taxTotal: "the consumption tax amount (消費税)", issueDate: "the date", invoiceRegistrationNumber: "the registration number (登録番号, T + 13 digits)" };
+export function buildFieldPrompt({ field, ocrValue }) {
+  return `This image is a small crop from a Japanese receipt. Read ${FIELD_LABEL[field] || field} exactly as printed.
+An OCR engine read it as ${JSON.stringify(ocrValue ?? null)}; that reading may be wrong. Do not guess: if the characters are not legible, say so.
+Reply with ONLY a JSON object: {"value": <yen amounts as an integer, dates as YYYY-MM-DD, registration numbers as T + 13 digits, or null if not legible>, "legible": true|false, "confidence": "high"|"medium"|"low"}`;
+}
+
 export function buildPrompt({ lang, year, hint, accounts, pdfText }) {
   const nl = LANG_NAME[lang] || "English";
   const list = (Array.isArray(accounts) && accounts.length ? accounts : DEFAULT_ACCOUNTS).filter((a) => DEFAULT_ACCOUNTS.includes(a));
@@ -55,15 +64,16 @@ export default async function handler(req, res) {
   if (!image || typeof image !== "string" || image.length > MAX_B64) return res.status(400).json({ error: "Missing or too large image" });
   if (!MEDIA_TYPES.includes(mediaType)) return res.status(400).json({ error: "Unsupported image type" });
 
+  const fieldMode = body.mode === "field" && FIELD_LABEL[body.field];
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": String(process.env.ANTHROPIC_API_KEY).trim(), "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: String(process.env.ANTHROPIC_MODEL || "").trim() || "claude-sonnet-5-5",
-      max_tokens: 800,
+      max_tokens: fieldMode ? 120 : 800,
       messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: mediaType, data: image } },
-        { type: "text", text: buildPrompt(body) },
+        { type: "text", text: fieldMode ? buildFieldPrompt(body) : buildPrompt(body) },
       ] }],
     }),
   });
@@ -77,7 +87,7 @@ export default async function handler(req, res) {
   const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
   try {
     const model = data.model || String(process.env.ANTHROPIC_MODEL || "").trim() || "claude-sonnet-5-5";
-    return res.status(200).json({ ...parseJson(text), _meta: { provider: "vision", model, promptVersion: PROMPT_VERSION } });
+    return res.status(200).json({ ...parseJson(text), _meta: { provider: "vision", model, promptVersion: fieldMode ? FIELD_PROMPT_VERSION : PROMPT_VERSION } });
   } catch {
     return res.status(502).json({ error: "The AI reply was not valid JSON" });
   }
