@@ -673,6 +673,7 @@
       let sc = (mode === "full" ? Math.max(1600, Math.min(box.w, 2800)) : 1600) / box.w;
       sc = Math.min(sc, Math.sqrt(16e6 / (box.w * box.h)));
       const c = document.createElement("canvas"); c.width = Math.round(box.w * sc); c.height = Math.round(box.h * sc);
+      canvasMap.set(c, { x: box.x0 / W, y: box.y0 / H, w: box.w / W, h: box.h / H });
       const ctx = c.getContext("2d", { willReadFrequently: true });
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(c0, box.x0, box.y0, box.w, box.h, 0, 0, c.width, c.height);
@@ -689,7 +690,8 @@
         let g = DP.fromCanvas(c);
         if (pre.denoise) g = DP.denoise(g);
         if (pre.sharpen) g = DP.sharpen(g, pre.sharpen);
-        return DP.toCanvas(g);
+        const out = DP.toCanvas(g); canvasMap.set(out, canvasMap.get(c));
+        return out;
       }
       return c;
     } finally { URL.revokeObjectURL(url); }
@@ -697,38 +699,77 @@
   const cleanText = (t) => (t || "").replace(/(?<=[^\x00-\x7F]) (?=[^\x00-\x7F])/g, ""); // drop OCR spaces between CJK chars
   // psm "3" = automatic page layout (best for headers, totals, company lines);
   // psm "6" = one block of rows (keeps item tables with wide columns on one line each)
-  async function recognize(langs, canvas, psm) {
+  // Where each prepared canvas sits on the processed image (normalized), so word boxes can be shown on it
+  const canvasMap = new WeakMap();
+  /** Words and lines with confidence (0–1) and boxes normalized to the processed image. */
+  function collect(data, canvas) {
+    const m = canvasMap.get(canvas) || { x: 0, y: 0, w: 1, h: 1 };
+    const W = canvas.width || 1, H = canvas.height || 1, r4 = (v) => Math.round(v * 10000) / 10000;
+    const box = (b) => (b ? { x: r4(m.x + (b.x0 / W) * m.w), y: r4(m.y + (b.y0 / H) * m.h), width: r4(((b.x1 - b.x0) / W) * m.w), height: r4(((b.y1 - b.y0) / H) * m.h) } : null);
+    let words = data.words, lines = data.lines;
+    if ((!words || !lines) && Array.isArray(data.blocks)) {
+      words = []; lines = [];
+      for (const bl of data.blocks) for (const pa of bl.paragraphs || []) for (const li of pa.lines || []) { lines.push(li); for (const w of li.words || []) words.push(w); }
+    }
+    return {
+      words: (words || []).filter((w) => String(w.text || "").trim()).map((w) => ({ text: String(w.text).trim(), confidence: r4((w.confidence || 0) / 100), bbox: box(w.bbox) })),
+      lines: (lines || []).filter((l) => String(l.text || "").trim()).map((l) => ({ text: cleanText(String(l.text).trim()), confidence: r4((l.confidence || 0) / 100), bbox: box(l.bbox) })),
+      confidence: r4((data.confidence || 0) / 100),
+    };
+  }
+  async function recognizeFull(langs, canvas, psm) {
     const w = await getWorker(langs);
     if (w.psm !== psm) { await w.setParameters({ tessedit_pageseg_mode: psm }); w.psm = psm; }
-    return cleanText((await w.recognize(canvas)).data.text);
+    const { data } = await w.recognize(canvas, {}, { text: true, blocks: true });
+    return { text: cleanText(data.text), langs, psm, ...collect(data, canvas) };
   }
   // Receipt has a total and an item table (商品/単価/数量…) but no usable item rows were read
   const wantsTableRead = (r) => r.currency === "JPY" && !!r.total && !itemsExplain(r.item_details, r.total) && /(単価|数量|商品|品名|品目|明細|金額|QTY|PRICE)/i.test(r.raw_text || "");
   async function readReceipt(blob, opts) {
     progressCb = opts && opts.onProgress;
     const src = (opts && opts.original) || blob;
-    const pre = opts && opts.preprocess;
+    let pre = opts && opts.preprocess;
     // the fallback image (blob) is the processed copy, already turned and deskewed
     const prep = async (mode) => { try { return await prepare(src, mode, pre); } catch (e) { return await prepare(blob, mode, pre && { ...pre, angle: 0, turns: 0 }); } };
-    const read = async (canvas) => {
+    const passes = [];
+    const read = async (canvas, name) => {
       // Japanese + English covers almost every receipt issued in Japan; re-read with the right models
       // when the receipt is Chinese or English.
-      let text = await recognize("jpn+eng", canvas, "3");
-      const lang = scriptOf(text);
+      let full = await recognizeFull("jpn+eng", canvas, "3");
+      const lang = scriptOf(full.text);
       if (PASS2[lang]) {
         if (opts && opts.onLanguage) opts.onLanguage(lang);
-        try { text = await recognize(PASS2[lang], canvas, "3"); } catch (e) { /* keep first text */ }
+        try { full = await recognizeFull(PASS2[lang], canvas, "3"); } catch (e) { /* keep first text */ }
       }
-      const r = parseReceiptText(text, { ...(opts || {}), lang });
-      r.raw_text = text;
+      passes.push({ pass: name, turns: (pre && pre.turns) || 0, ...full });
+      const r = parseReceiptText(full.text, { ...(opts || {}), lang });
+      r.raw_text = full.text;
       return r;
     };
-    let r = await read(await prep("standard"));
+    const strength = (p) => p.words.filter((w) => w.confidence >= 0.6).reduce((s, w) => s + w.confidence * w.text.length, 0);
+    let r = await read(await prep("standard"), "standard");
+    // A page turned 90° / 180° reads as almost nothing: try the other orientations and keep the clearly better one.
+    if (!(opts && opts.tryRotations === false) && (strength(passes[0]) < 25 || (!r.date && !r.total))) {
+      let best = { r, p: passes[0], turns: 0, s: strength(passes[0]) };
+      for (const turns of [1, 3, 2]) {
+        try {
+          const c = await prepare(src, "standard", { ...(pre || {}), turns: ((pre && pre.turns) || 0) + turns });
+          const full = await recognizeFull("jpn+eng", c, "3");
+          const s2 = strength(full);
+          if (s2 > best.s * 1.5 && s2 >= 25) { const r2 = parseReceiptText(full.text, { ...(opts || {}), lang: scriptOf(full.text) }); r2.raw_text = full.text; best = { r: r2, p: { pass: "rotated", turns: ((pre && pre.turns) || 0) + turns, ...full }, turns, s: s2 }; }
+        } catch (e) { /* keep what we have */ }
+      }
+      if (best.turns) {
+        pre = { ...(pre || {}), turns: ((pre && pre.turns) || 0) + best.turns };
+        passes.length = 0; passes.push(best.p); r = best.r;
+        if (opts && opts.onRotate) opts.onRotate(pre.turns);
+      }
+    }
     // Small print (large statements, company lines): read again at full resolution and fill the gaps.
     if (needsSecondPass(r)) {
       if (opts && opts.onSecondPass) opts.onSecondPass();
       try {
-        const r2 = await read(await prep("full"));
+        const r2 = await read(await prep("full"), "full");
         r = { ...mergeResults(r, r2), raw_text: r.raw_text + "\n" + r2.raw_text };
       } catch (e) { /* keep the first result */ }
     }
@@ -736,13 +777,16 @@
     if (wantsTableRead(r)) {
       if (opts && opts.onTablePass) opts.onTablePass();
       try {
-        const text = await recognize("jpn+eng", await prep("full"), "6");
+        const tf = await recognizeFull("jpn+eng", await prep("full"), "6");
+        passes.push({ pass: "table", turns: (pre && pre.turns) || 0, ...tf });
+        const text = tf.text;
         const rt = parseReceiptText(text, { ...(opts || {}), lang: "ja" });
         const rows = extractItemDetails(text.split("\n").map((l) => l.trim()).filter(Boolean), r.store || "", r.total);
         if (itemsExplain(rows, r.total) || rows.length > (r.item_details || []).length)
           r = { ...applyItems({ ...r, store_account: r.store_account || rt.store_account }, rows), raw_text: r.raw_text + "\n" + text };
       } catch (e) { /* keep what we have */ }
     }
+    r.ocr = { provider: "tesseract", model: "tesseract.js@5", turns: (pre && pre.turns) || 0, passes };
     return r;
   }
 
