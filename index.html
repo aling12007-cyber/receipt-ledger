@@ -850,7 +850,7 @@ const opts=(arr,sel,lab)=>arr.map(a=>`<option value="${esc(a)}" ${a===sel?"selec
 let sb=null,uid=null,aiEnabled=false,googleCfg=null;
 let driveReturn=(typeof Imports!=="undefined")?Imports.handleRedirect():null;const sample=true,canImages=true;
 let entries=[];
-let settings={name:"",filing:"blue65",ctax:"exempt",cash:"事業主借",card:"未払金",cardV:2,shogaku:"0",hint:""};
+let settings={name:"",filing:"blue65",ctax:"exempt",cash:"事業主借",card:"事業主借",cardV:3,shogaku:"0",hint:""};
 const DEDUCT={blue65:650000,blue55:550000,blue10:100000,white:0};
 const queue=[];
 const now=new Date();let year=now.getFullYear();
@@ -2245,7 +2245,9 @@ async function onSession(session){
   const {data}=await sb.from("settings").select("data").eq("user_id",uid).maybeSingle();
   if(data&&data.data){settings={...settings,...data.data};
     // one-time: card / e-money receipts default to 未払金 (paid later from the bank); the setting can still be changed
-    if(settings.cardV!==2){settings.card="未払金";settings.cardV=2;persistSettings()}
+    // one-time: everything is paid personally for now (no business card) → receipts default to 事業主借, cash or card;
+    // can be changed later in Settings (現金払いの貸方 / カード・電子マネー払いの貸方)
+    if(settings.cardV!==3){settings.card="事業主借";settings.cash="事業主借";settings.cardV=3;persistSettings()}
     let stored=null;try{stored=localStorage.getItem("lang")}catch(e){}
     if(!stored&&data.data.lang&&I18N[data.data.lang])lang=data.data.lang;}
   applyLang();await loadEntries();loadKnowledge();
