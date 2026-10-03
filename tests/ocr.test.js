@@ -129,3 +129,10 @@ test("foreign currency is not booked in yen", () => {
   assert.equal(r.total, 0);
   assert.equal(r.currency, "CNY");
 });
+
+test("MacBook is a computer, not a book (摘要 and account)", () => {
+  const r = O.parseReceiptText("テスト電機\n2026/09/20\nMacBook Pro 14 ¥250,000\n合計 ¥250,000", { year: 2026 });
+  assert.notEqual(r.items, "書籍代");
+  assert.notEqual(r.account, "新聞図書費");
+  assert.equal(O.summaryFor("新聞図書費", "ビジネス BOOK 1冊"), O.summaryFor("新聞図書費", "書籍"));
+});

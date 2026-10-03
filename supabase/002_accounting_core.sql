@@ -362,7 +362,7 @@ grant select on public.audit_log to authenticated;
 revoke insert, update, delete on public.audit_log from authenticated, anon;
 
 -- ---------- version (the app checks it and asks to re-run this file when it is older than expected) ----------
-create or replace function public.accounting_core_version() returns integer language sql immutable as $$ select 3 $$;
+create or replace function public.accounting_core_version() returns integer language sql immutable as $$ select 4 $$;
 grant execute on function public.accounting_core_version() to authenticated;
 
 -- ---------- import (used by the data upgrade now, and later by CSV import and backup restore) ----------
@@ -396,11 +396,13 @@ begin
     t := e->'transaction'; tid := null;
     if t is not null and jsonb_typeof(t) = 'object' then
       tid := coalesce((t->>'id')::uuid, gen_random_uuid());
-      insert into transactions (id, document_id, date, vendor, total, payment, status, source)
+      insert into transactions (id, document_id, date, vendor, total, payment, status, source, suggestion, checks)
       values (tid,
               (select id from documents where user_id = uid and storage_path = t->>'document_path'),
               (t->>'date')::date, coalesce(t->>'vendor', ''), (t->>'total')::bigint, coalesce(t->>'payment', 'unknown'),
-              coalesce(t->>'status', 'confirmed'), coalesce(t->>'source', 'import'));
+              coalesce(t->>'status', 'confirmed'), coalesce(t->>'source', 'import'),
+              case when jsonb_typeof(t->'suggestion') = 'object' then t->'suggestion' end,
+              case when jsonb_typeof(t->'checks') = 'object' then t->'checks' end);
     end if;
     jid := coalesce((e->>'id')::uuid, gen_random_uuid());
     insert into journal_entries (id, transaction_id, date, kind, source, vendor, invoice_no, invoice_status, memo, rule_version, reverses)

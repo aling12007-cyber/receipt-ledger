@@ -79,3 +79,18 @@ select case when (public.purge_journal(array['cccccccc-0000-0000-0000-0000000000
 SQL
 echo "--- document intelligence (003)"
 psql -q -d $DB -f supabase/tests/document_intelligence_test.sql 2>&1 | sed 's/^ *//' | grep -E 'PASS|FAIL|ERROR'
+echo "--- transactions keep the document's suggestion and checks (version 4)"
+psql -q -d $DB <<'SQL' 2>&1 | sed 's/^ *//' | grep -E 'PASS|FAIL|ERROR'
+\pset tuples_only on
+set role authenticated;
+set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
+select case when public.accounting_core_version() >= 4 then 'PASS  version 4' else 'FAIL  version' end;
+select public.import_journal('{"documents":[{"storage_path":"55555555-5555-5555-5555-555555555555/2026-09/s.jpg"}],
+  "entries":[{"legacy_ids":["sx1"],"date":"2026-09-28","source":"migrated",
+    "transaction":{"document_path":"55555555-5555-5555-5555-555555555555/2026-09/s.jpg","date":"2026-09-28","payment":"card","status":"confirmed","source":"ocr",
+      "suggestion":{"account":"会議費","confidence":0.82,"source":"history"},"checks":{"status":"ok"}},
+    "lines":[{"account":"会議費","dr":1100,"tax_code":"P10","tax_amount":100},{"account":"未払金","cr":1100}]}]}'::jsonb) is not null;
+select case when t.payment = 'card' and t.source = 'ocr' and t.suggestion->>'account' = '会議費' and t.checks->>'status' = 'ok' and t.document_id is not null
+  then 'PASS  receipt → transaction (suggestion, checks, document) → journal entry' else 'FAIL  transaction fields' end
+  from transactions t join journal_entries j on j.transaction_id = t.id where j.date = '2026-09-28';
+SQL

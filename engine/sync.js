@@ -68,6 +68,24 @@
     return [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((k) => (a[k] || 0) !== (b[k] || 0)).map((k) => ({ key: k, books: a[k] || 0, records: b[k] || 0 }));
   }
 
+  /** What the reviewed documents say (document_runs, 003): payment method, account suggestion, validation — keyed by image path. */
+  async function docInfo(sb) {
+    /** @type {Record<string, any>} */
+    const out = {};
+    try {
+      for (let from = 0; ; from += 1000) {
+        const r = await sb.from("document_runs").select("processed_path,validation,final").not("processed_path", "is", null).range(from, from + 999);
+        if (r.error || !r.data) break;
+        for (const x of r.data) {
+          const tx = x.final && Array.isArray(x.final.transactions) ? x.final.transactions[0] : null;
+          out[x.processed_path] = { payment: (tx && tx.paymentMethod) || "unknown", suggestion: tx ? tx.accountSuggestion : null, checks: x.validation || null };
+        }
+        if (r.data.length < 1000) break;
+      }
+    } catch (e) { /* 003 not run: nothing extra */ }
+    return out;
+  }
+
   /** Load the migrated part of the journal and the legacy map. */
   async function load(sb) {
     const entries = [], map = [];
@@ -95,7 +113,7 @@
     const v = await sb.rpc("accounting_core_version");
     if (v.error || !(v.data >= 3)) throw Object.assign(new Error("accounting core SQL is out of date"), { code: "SQL_OUTDATED" });
     const before = await load(sb);
-    const p = plan(rows, settings, before, deps);
+    const p = plan(rows, settings, before, { ...deps, docInfo: deps.docInfo || (await docInfo(sb)) });
     let paths = [];
     if (p.purge.length) {
       const { data, error } = await sb.rpc("purge_journal", { ids: p.purge });

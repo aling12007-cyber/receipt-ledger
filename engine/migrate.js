@@ -47,6 +47,14 @@
   }
 
   function plan(entries, settings, deps) {
+    // the reviewed document behind a receipt (document_runs): payment method, account suggestion, validation result
+    const docInfo = (deps && deps.docInfo) || {};
+    const txOf = (first, rows) => {
+      const d = (first.assetId && docInfo[first.assetId]) || null;
+      return { id: uuid(), document_path: first.assetId || null, date: ymd(first.date), vendor: first.vendor || "",
+        total: rows.reduce((t, e) => t + Books.totalOf(e), 0), payment: (d && d.payment) || "unknown", status: "confirmed", source: d ? "ocr" : "migrated",
+        ...(d ? { suggestion: d.suggestion || null, checks: d.checks || null } : {}) };
+    };
     const { Books, Filing } = deps;
     const uuid = deps.uuid || (() => root.crypto.randomUUID());
     const s = settings || {};
@@ -75,7 +83,7 @@
         vendor: first.vendor || "", invoice_no: inv,
         invoice_status: first.type === "income" ? null : isInvoice(inv) ? "確認済" : "要確認",
         memo, rule_version: "2026.1",
-        transaction: { id: uuid(), document_path: first.assetId || null, date: ymd(first.date), vendor: first.vendor || "", total: rows.reduce((t, e) => t + Books.totalOf(e), 0), payment: "unknown", status: "confirmed", source: "migrated" },
+        transaction: txOf(first, rows),
         lines,
       });
     }

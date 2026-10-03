@@ -305,7 +305,7 @@
     [/(タクシー|交通|JR|鉄道|駅|乗車|SUICA|PASMO|ICOCA|バス|新幹線|航空|高速|駐車|パーキング|ガソリン|ENEOS|出光|コスモ石油)/i, "旅費交通費"],
     [/(郵便|切手|レターパック|ゆうパック|携帯|docomo|ドコモ|KDDI|au by|softbank|ソフトバンク|楽天モバイル|通信料|月額プラン|年額プラン|サブスク|SUBSCRIPTION|ADOBE|CREATIVE CLOUD|GOOGLE WORKSPACE|MICROSOFT 365|OFFICE 365|AWS|AMAZON WEB SERVICES|さくらインターネット|エックスサーバー|XSERVER|お名前\.com|ドメイン|サーバー|CHATGPT|OPENAI|ANTHROPIC|CLAUDE|CANVA|ZOOM|SLACK|NOTION|DROPBOX|FIGMA)/i, "通信費"],
     [/(ヤマト|佐川|宅急便|宅配|運輸)/, "荷造運賃"],
-    [/(書店|書房|ブック|BOOK|紀伊國屋|丸善|ジュンク|蔦屋|TSUTAYA|新聞)/i, "新聞図書費"],
+    [/(書店|書房|ブック(?!オフ\s*PC)|(?<!MAC\s?|NOTE\s?|CHROME\s?|MATE\s?)BOOK(?!\s?(PRO|AIR))|紀伊國屋|丸善|ジュンク|蔦屋|TSUTAYA|新聞)/i, "新聞図書費"],
     [/(収入印紙|印紙)/, "租税公課"],
     [/(振込手数料|手数料)/, "支払手数料"],
     [/(カフェ|CAFE|CAFÉ|COFFEE|コーヒー|珈琲|喫茶|咖啡|星巴克|スターバックス|STARBUCKS|ドトール|タリーズ|コメダ|ルノアール)/i, "会議費"],
@@ -321,7 +321,7 @@
     alcohol: /(生?ビール|ハイボール|サワー|ワイン|日本酒|焼酎|梅酒|飲み放題|BEER|WINE|SAKE|HIGHBALL|COCKTAIL)/gi,
     cafe: /(コーヒー|珈琲|カフェラテ|ラテ|紅茶|ティー|ケーキ|COFFEE|LATTE|ESPRESSO|CAPPUCCINO|AMERICANO|\bTEA\b)/gi,
     office: /(文具|ノート|ボールペン|ペン|コピー用紙|用紙|インク|トナー|USB|ケーブル|電池|ファイル|封筒|テープ|プリンタ|マウス|キーボード)/gi,
-    books: /(書籍|雑誌|新聞|文庫|単行本|BOOK|MAGAZINE)/gi,
+    books: /(書籍|雑誌|新聞|文庫|単行本|(?<!MAC\s?|NOTE\s?|CHROME\s?|MATE\s?)BOOK(?!\s?(PRO|AIR))|MAGAZINE)/gi,
     postage: /(切手|はがき|ハガキ|レターパック|郵便|ゆうパック|速達)/g,
   };
   const count = (re, t) => (t.match(re) || []).length;
@@ -464,7 +464,7 @@
     [/(切手|はがき|ハガキ|葉書|レターパック|郵便|速達|書留|STAMP|POSTAGE)/i, "通信費"],
     [/(宅急便|宅配便|ゆうパック|ゆうパケット|送料|配送料|クリックポスト|SHIPPING)/i, "荷造運賃"],
     [/(手数料|FEE\b)/i, "支払手数料"],
-    [/(書籍|雑誌|新聞|文庫|単行本|コミック|週刊|月刊|BOOK|MAGAZINE)/i, "新聞図書費"],
+    [/(書籍|雑誌|新聞|文庫|単行本|コミック|週刊|月刊|(?<!MAC\s?|NOTE\s?|CHROME\s?|MATE\s?)BOOK(?!\s?(PRO|AIR))|MAGAZINE)/i, "新聞図書費"],
     [/(文具|ノート|ボールペン|ペン|鉛筆|シャープ|消しゴム|コピー用紙|用紙|インク|トナー|ファイル|封筒|テープ|のり|ホチキス|クリップ|付箋|手帳|カレンダー|USB|ケーブル|充電器|電池|マウス|キーボード|SDカード|メモリ|プリンタ|イヤホン|PEN|NOTE|CABLE|BATTERY)/i, "消耗品費"],
     [/(洗剤|ティッシュ|トイレット|ゴミ袋|ごみ袋|マスク|消毒|清掃|ハンドソープ|ラップ)/, "消耗品費"],
     [/(ギフト|贈答|手土産|お土産|花束|お中元|お歳暮|御祝|祝儀|香典|GIFT)/i, "接待交際費"],

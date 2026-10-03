@@ -6,7 +6,7 @@ const browser = Object.fromEntries(["window", "document", "navigator", "location
   "getComputedStyle", "structuredClone", "queueMicrotask", "performance", "AbortController", "Response", "Request", "Headers", "FormData", "globalThis", "self"].map((g) => [g, "readonly"]));
 const node = Object.fromEntries(["process", "Buffer", "module", "require", "__dirname", "console", "URL", "fetch", "setTimeout", "clearTimeout", "globalThis", "TextEncoder", "TextDecoder", "crypto", "structuredClone"].map((g) => [g, "readonly"]));
 // globals the page gets from its other <script> tags
-const pageLibs = Object.fromEntries(["supabase", "Tesseract", "ReceiptOCR", "Filing", "Books", "Imports", "Migrate", "Journal", "LedgerService", "Sync", "Accounts", "TaxRules", "Ledger", "Tips", "DocModel", "DocQuality", "DocPreprocess", "DocProviders", "DocPipeline", "DocDigits", "DocClassify", "DocExtract", "DocValidate", "DocConfidence", "DocReverify", "pdfjsLib", "heic2any", "google", "gapi"].map((g) => [g, "readonly"]));
+const pageLibs = Object.fromEntries(["supabase", "Tesseract", "ReceiptOCR", "Filing", "Books", "Imports", "Migrate", "Journal", "LedgerService", "Sync", "Accounts", "TaxRules", "Ledger", "Tips", "DocModel", "DocQuality", "DocPreprocess", "DocProviders", "DocPipeline", "DocDigits", "DocClassify", "DocExtract", "DocValidate", "DocConfidence", "DocReverify", "DocMerchant", "DocDuplicate", "DocTransaction", "pdfjsLib", "heic2any", "google", "gapi"].map((g) => [g, "readonly"]));
 
 const rules = {
   "no-undef": "error", "no-dupe-keys": "error", "no-dupe-args": "error", "no-duplicate-case": "error", "no-unreachable": "error",
