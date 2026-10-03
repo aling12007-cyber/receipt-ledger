@@ -81,7 +81,7 @@
         id: uuid(), legacy_ids: rows.map((e) => e.id), date: ymd(first.date),
         kind: lines.length > 2 ? "compound" : "normal", source: "migrated",
         vendor: first.vendor || "", invoice_no: inv,
-        invoice_status: first.type === "income" ? null : isInvoice(inv) ? "確認済" : "要確認",
+        invoice_status: first.type === "income" ? null : isInvoice(inv) ? "確認済" : rows.some((e) => (+e.amt10 || 0) + (+e.amt8 || 0) > 0) ? "要確認" : "対象外",   // 非課税・不課税 only: no invoice needed
         memo, rule_version: "2026.1",
         transaction: txOf(first, rows),
         lines,

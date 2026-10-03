@@ -108,7 +108,7 @@
         if (amount - biz > 0) base.lines.push(line("事業主貸", amount - biz, 0, "-", date)); // 家事按分: private share
         base.lines.push(line(credit, 0, amount, "-", date));
       }
-      base.invoice_status = isInvoice(q.invoiceNo) ? "確認済" : amount < TaxRules.rulesFor(date).publicTransportExemption.below && s.account.value === "旅費交通費" ? "対象外" : "要確認";
+      base.invoice_status = isInvoice(q.invoiceNo) ? "確認済" : !/^P(10|8)$/.test(s.taxCode.value) ? "対象外" : amount < TaxRules.rulesFor(date).publicTransportExemption.below && s.account.value === "旅費交通費" ? "対象外" : "要確認";
     } else if (type === "sale") {
       const debit = Accounts.PAYMENT_ACCOUNT[q.payment || "bank"] || q.payment || "普通預金";
       const code = q.taxCode || (q.taxRate === 8 ? "S8" : q.taxRate === 0 ? "SX" : "S10");
