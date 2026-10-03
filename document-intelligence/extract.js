@@ -10,6 +10,8 @@
   const M = isNode ? require("./model.js") : root.DocModel;
   const D = isNode ? require("./digits.js") : root.DocDigits;
   const K = isNode ? require("./classify.js") : root.DocClassify;
+  // merchant.js loads after this file in the page: resolved when used
+  const brands = () => (isNode ? require("./merchant.js") : root.DocMerchant);
   /* eslint-enable no-undef */
 
   const compact = (s) => D.toHalf(String(s || "")).replace(/[\s　]/g, "").toLowerCase();
@@ -47,12 +49,24 @@
     const cls = K.classify(text);
     e.documentType = M.field(input.docType || cls.type, { confidence: cls.confidence, source: "classifier" });
 
-    // ---- date ----
-    const d = D.date(text, year);
-    e.issueDate = d.value ? fieldAt(d.value, d.line, { corrected: d.corrected }) : M.field(r.date || null, { confidence: r.date ? base * 0.8 : 0, source: "reader" });
+    // ---- date (on invoices and bills the 発行日 / 請求日 is the date, not the period of use) ----
+    let d = D.date(text, year), dateLabelled = false;
+    if (/^(invoice|bill|delivery_note)$/.test(input.docType || cls.type)) {
+      const li = tl.findIndex((l) => /(発行日|請求日|作成日|納品日|発行年月日)/.test(l) && D.date(l, year).value);
+      if (li >= 0) { d = { ...D.date(tl[li], year), line: li }; dateLabelled = true; }
+    }
+    e.issueDate = d.value ? fieldAt(d.value, d.line, { corrected: d.corrected, source: dateLabelled ? "labelled" : undefined }) : M.field(r.date || null, { confidence: r.date ? base * 0.8 : 0, source: "reader" });
 
     // ---- merchant, address, phone, receipt no. ----
-    const merchant = r.vendor || r.company || r.store || "";
+    // the document title (領収書 / 請求書 …) is not the merchant; a known brand in the first lines is
+    const TITLE = /^(領\s*収\s*[書証]|請\s*求\s*書|納\s*品\s*書|レシート|御?見積書)$/;
+    let merchant = r.vendor || r.company || r.store || "";
+    if (!merchant || TITLE.test(merchant)) {
+      const top = tl.slice(0, 6).map((l) => l.replace(/(領\s*収\s*[書証]|レシート|請\s*求\s*書)/g, "").trim()).filter((l) => l && !TITLE.test(l));
+      const brand = brands();
+      merchant = top.find((l) => brand && brand.ALIASES.some(([re]) => re.test(l))) ||
+        top.find((l) => /株式会社|有限会社|\(株\)|（株）/.test(l) && !/様|御中/.test(l)) || (TITLE.test(merchant) ? "" : merchant);
+    }
     const mi = merchant ? tl.findIndex((l) => compact(l).includes(compact(merchant).slice(0, 6))) : -1;
     e.merchantName = fieldAt(merchant || null, mi, { labelled: mi >= 0 });
     e.rawMerchantName = M.field(r.store || merchant || null, { confidence: e.merchantName.confidence, bbox: e.merchantName.bbox, source: "ocr-line" });
@@ -86,7 +100,9 @@
         const si0 = tl.findIndex((l) => /小\s*計/.test(l) && D.amountsIn(l).length);
         const sub0 = si0 >= 0 ? D.amountsIn(tl[si0]).slice(-1)[0].value : null;
         const tendered = total != null && tl.some((l) => /(現金|お預|預り|お支払|CASH)/i.test(l) && D.amountsIn(l).some((a) => Math.abs(a.value) === total));
-        if (A > 0 && A !== total && ((change != null && total != null && total - change === A) || (sub0 === A && tendered) || (total == null))) { total = A; tenderedFix = r.total != null; }
+        // the reader's total printed nowhere as a whole amount ("¥l,500" read as 500) is an artifact of a misread
+        const printed = total != null && tl.some((l) => D.amountsIn(l).some((a) => Math.abs(a.value) === total));
+        if (A > 0 && A !== total && ((change != null && total != null && total - change === A) || (sub0 === A && tendered) || total == null || !printed)) { total = A; tenderedFix = r.total != null; }
         else if (A > 0 && A !== total) labelledTotal = { value: A, line: li };
       }
     }
@@ -175,7 +191,35 @@
     return e;
   }
 
-  const api = { extract };
+  /**
+   * What the structured reading adds to the reader's result before the form is filled (same in the app and the evaluation):
+   * a corrected total, a missing date / registration number, and the 10% / 8% / other split from a printed breakdown.
+   * @param {any} r reader result (changed in place) @param {any} ex Extraction
+   */
+  function apply(r, ex) {
+    const v = (f) => ex[f] && ex[f].value;
+    if (v("total") && v("total") !== r.total && !(r.lines && r.lines.length)) {
+      // the total changed: 非課税 / 不課税 only as printed, 8% kept when it fits, the rest 10%
+      const a0 = (ex.taxBreakdown || []).filter((b) => !b.rate && b.source !== "derived").reduce((s2, b) => s2 + (b.taxableAmount || 0), 0);
+      r.total = v("total");
+      const a8 = (+r.amount_8 || 0) <= r.total - a0 ? +r.amount_8 || 0 : 0;
+      r.amount_other = a0; r.amount_8 = a8; r.amount_10 = Math.max(0, r.total - a8 - a0);
+    }
+    if (!r.invoice_no && v("invoiceRegistrationNumber")) r.invoice_no = v("invoiceRegistrationNumber");
+    if ((!r.date || (ex.issueDate.source === "labelled" && v("issueDate"))) && v("issueDate")) r.date = v("issueDate");
+    if ((!r.vendor || /^(領収[書証]|請求書|納品書|レシート)$/.test(r.vendor)) && v("merchantName")) r.vendor = v("merchantName");
+    // a printed breakdown that adds up to the total decides the split (税抜 amounts are turned into 税込)
+    const bd = (ex.taxBreakdown || []).filter((b) => b.source !== "derived" && b.taxableAmount != null);
+    const incl = (b) => (b.rate && b.inclusive === false ? b.taxableAmount + (b.taxAmount != null ? b.taxAmount : Math.floor((b.taxableAmount * b.rate) / 100)) : b.taxableAmount);
+    const by = (k) => bd.filter((b) => (k === 10 ? b.rate === 10 : k === 8 ? b.rate === 8 : !b.rate)).reduce((s2, b) => s2 + incl(b), 0);
+    if (bd.length && r.total && !(r.lines && r.lines.length)) {
+      const sum = by(10) + by(8) + by(0);
+      if (Math.abs(sum - r.total) <= bd.length) { r.amount_10 = by(10) + (r.total - sum); r.amount_8 = by(8); r.amount_other = by(0); }
+    }
+    return r;
+  }
+
+  const api = { extract, apply };
   if (isNode) module.exports = api;
   else root.DocExtract = api;
 })(typeof window !== "undefined" ? window : globalThis);

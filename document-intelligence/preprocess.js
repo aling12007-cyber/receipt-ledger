@@ -7,11 +7,11 @@
 (function (root) {
   /** @typedef {{ gray: Uint8ClampedArray, width: number, height: number }} Gray */
 
-  /** Rotate by `deg` degrees (counter-clockwise positive) around the centre, bilinear, white outside. @param {Gray} img @param {number} deg @returns {Gray} */
-  function rotate(img, deg) {
+  /** Rotate by `deg` degrees (counter-clockwise positive) around the centre, bilinear; `fill` outside (white). @param {Gray} img @param {number} deg @param {number} [fill] @returns {Gray} */
+  function rotate(img, deg, fill = 255) {
     const { gray, width: w, height: h } = img, a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
     const W = Math.round(Math.abs(w * c) + Math.abs(h * s)), H = Math.round(Math.abs(w * s) + Math.abs(h * c));
-    const out = new Uint8ClampedArray(W * H).fill(255), cx = w / 2, cy = h / 2, CX = W / 2, CY = H / 2;
+    const out = new Uint8ClampedArray(W * H).fill(fill), cx = w / 2, cy = h / 2, CX = W / 2, CY = H / 2;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const dx = x - CX, dy = y - CY;
       const sx = c * dx - s * dy + cx, sy = s * dx + c * dy + cy;

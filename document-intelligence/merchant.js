@@ -28,7 +28,10 @@
     for (const [re, name] of ALIASES) if (re.test(s)) return { raw: r, normalized: name, branch: (s.match(BRANCH) || ["", ""])[1] || "", alias: true };
     let branch = "";
     const m = s.match(BRANCH);
-    if (m && s.length - m[0].length >= 2) { branch = m[1]; s = s.slice(0, s.length - m[0].length).trim(); }
+    // "テスト商店新宿店": OCR drops the space; a shop word before a short "…店" marks the branch
+    const glued = s.match(/^(.+?(マート|ストア|商店|スーパー|ドラッグ|薬局|カメラ|電機|書店|百貨店|食堂|書房))(\S{1,6}(店|支店))$/);
+    if (glued) { branch = glued[3]; s = glued[1]; }
+    else if (m && s.length - m[0].length >= 2 && /\s/.test(m[0])) { branch = m[1]; s = s.slice(0, s.length - m[0].length).trim(); }
     return { raw: r, normalized: s.replace(/\s+/g, ""), branch, alias: false };
   }
 

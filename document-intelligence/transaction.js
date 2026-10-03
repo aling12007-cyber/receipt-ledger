@@ -33,7 +33,9 @@
     const hist = o.knowledge && o.merchant ? Mer.suggest(o.merchant, o.knowledge) : null;
     if (hist) cands.push({ account: hist.account, confidence: hist.confidence, source: "history", n: hist.uses });
     if (o.ai && o.ai.account) cands.push({ account: o.ai.account, confidence: o.ai.confidence === "high" ? 0.85 : o.ai.confidence === "medium" ? 0.7 : 0.5, source: "ai" });
-    if (o.rules && o.rules.account) cands.push({ account: o.rules.account, confidence: o.rules.account === "雑費" || o.rules.account === "消耗品費" ? 0.5 : 0.65, source: "rules" });
+    // keyword rules: specific evidence (taxi, rent, stamps, utilities…) is fairly reliable; supplies vs meetings needs a person
+    const RULE_CONF = { 旅費交通費: 0.8, 水道光熱費: 0.8, 通信費: 0.8, 租税公課: 0.8, 地代家賃: 0.8, 荷造運賃: 0.8, 新聞図書費: 0.75, 支払手数料: 0.75, 研修費: 0.75, 広告宣伝費: 0.7, 会議費: 0.6, 接待交際費: 0.6 };
+    if (o.rules && o.rules.account) cands.push({ account: o.rules.account, confidence: RULE_CONF[o.rules.account] ?? 0.5, source: "rules" });
     // agreement between independent sources raises confidence
     for (const c of cands) { const agree = cands.filter((x) => x !== c && x.account === c.account).length; if (agree) c.confidence = Math.min(0.97, 1 - (1 - c.confidence) * Math.pow(0.5, agree)); }
     const best = cands.sort((a, b) => b.confidence - a.confidence)[0] || { account: "雑費", confidence: 0.3, source: "default", n: 0 };

@@ -21,7 +21,7 @@
 
   /**
    * @param {any} e Extraction
-   * @param {{ consensus?: Record<string, any>, validation?: { checks: any[] }, config?: Partial<typeof CONFIG> }} [o]
+   * @param {{ consensus?: Record<string, any>, validation?: { checks: any[] }, account?: { account: string, confidence: number, source?: string } | null, config?: Partial<typeof CONFIG> }} [o]
    */
   function score(e, o = {}) {
     const C = { ...CONFIG, ...(o.config || {}) };
@@ -64,6 +64,11 @@
       else if (mine.some((k) => k.level === "ok") && s > 0) { s = Math.min(1, s + 0.03); reasons.push("validated"); }
       s = Math.round(Math.max(0, Math.min(1, s)) * 1000) / 1000;
       fields[name] = { score: s, level: level(s, C), reasons, value };
+    }
+    // the recommended account is part of what gets booked: a weak recommendation means a person decides
+    if (o.account && o.account.account) {
+      const s2 = Math.round(Math.max(0, Math.min(1, o.account.confidence || 0)) * 1000) / 1000;
+      fields.account = { score: s2, level: level(s2, C), reasons: [o.account.source || "suggestion"], value: o.account.account };
     }
     const keyScores = KEY.map((k) => (fields[k] ? fields[k].score : 0));
     const overall = Math.min(...keyScores);

@@ -308,6 +308,8 @@
     [/(書店|書房|ブック(?!オフ\s*PC)|(?<!MAC\s?|NOTE\s?|CHROME\s?|MATE\s?)BOOK(?!\s?(PRO|AIR))|紀伊國屋|丸善|ジュンク|蔦屋|TSUTAYA|新聞)/i, "新聞図書費"],
     [/(収入印紙|印紙)/, "租税公課"],
     [/(振込手数料|手数料)/, "支払手数料"],
+    [/(不動産|家賃|賃料|地代|月極|管理会社)/, "地代家賃"],
+    [/(印刷|名刺|チラシ|看板|広告)/, "広告宣伝費"],
     [/(カフェ|CAFE|CAFÉ|COFFEE|コーヒー|珈琲|喫茶|咖啡|星巴克|スターバックス|STARBUCKS|ドトール|タリーズ|コメダ|ルノアール)/i, "会議費"],
     [/(居酒屋|焼肉|寿司|鮨|料亭|ダイニング|レストラン|酒場|\bBAR\b)/i, "接待交際費"],
     [/(食堂|ラーメン|そば|うどん|定食|カレー|和食|洋食|中華|鉄板|割烹|ビストロ|トラットリア|バーガー|ハンバーグ|とんかつ|天ぷら|KITCHEN|DINER|GRILL|RESTAURANT|BISTRO|TRATTORIA|BURGER|TAPROOM|DINING)/i, "会議費"],
@@ -329,6 +331,9 @@
   // convenience store is not a meeting, and "Suica" on a café receipt is just how it was paid).
   const TEXT_ONLY_SKIP = new Set(["会議費", "接待交際費", "旅費交通費"]);
   function guessAccount(vendor, t) {
+    // what was bought decides over the shop for these: revenue stamps at a post office, rent paid at an agency
+    if (/収入印紙/.test(t || "") && !/(切手|はがき|ハガキ|レターパック|ゆうパック|速達)/.test(t || "")) return { account: "租税公課", hint: "" };
+    if (/(家賃|賃料|地代)/.test(t || "") && !/(仲介手数料|手数料)/.test(t || "")) return { account: "地代家賃", hint: "" };
     for (const [re, acc] of ACCOUNT_RULES) if (vendor && re.test(vendor)) return { account: acc, hint: /会議費|接待交際費/.test(acc) ? "meal" : "" };
     const sc = Object.fromEntries(Object.entries(ITEM_RULES).map(([k, re]) => [k, count(re, t)]));
     const reduced = /(※|軽\s*減|8\s*%\s*対象)/.test(t);
