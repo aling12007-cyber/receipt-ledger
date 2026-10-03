@@ -244,6 +244,7 @@ html[lang="en"]{--f-display:"Noto Serif TC",Georgia,serif}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/ocr.js"></script>
 <script src="/tips.js"></script>
+<script src="/document-intelligence/model.js"></script>
 <script src="/books.js"></script>
 <script src="/filing.js"></script>
 <script src="/engine/accounts.js"></script>
@@ -966,6 +967,21 @@ async function scanReceipt(blob,q){
   if(!res.ok) throw {code:res.status===401||res.status===403?"auth":res.status===429?"rate_limited":"server",message:body.error||("HTTP "+res.status)};
   return body;
 }
+// ---- Document Intelligence: processing record (document_runs) and field corrections (document_field_edits) ----
+const RUN_FIELDS=["date","vendor","invoiceNo","items","amt10","amt8","amt0","debit","credit","bizRatio","split"];
+function cleanDraft(d){const o=JSON.parse(JSON.stringify(d||{}));delete o._ctx;if(Array.isArray(o.split))o.split=o.split.map(l=>({debit:l.debit,items:l.items,amt10:l.amt10,amt8:l.amt8,amt0:l.amt0}));return o}
+async function recordRun(q,d,ids){
+  if(!q.read||!sb)return;
+  try{
+    const ai=cleanDraft(q.aiDraft),user=cleanDraft(d),raw=q.read.raw||{};
+    const run=DocModel.processingRun({processedPath:d.assetId||null,originalPath:q.origPath||null,sha256:q.sha,provider:q.read.meta.provider,model:q.read.meta.model,
+      promptVersion:q.read.meta.promptVersion,rawOcr:{text:raw.raw_text||q.pdfText||"",result:raw},structured:ai,status:"posted"});
+    const {data,error}=await sb.from("document_runs").insert({...run,final:user,entry_ids:ids,confirmed_at:new Date().toISOString()}).select("id").single();
+    if(error||!data)return;                                   // 003_document_intelligence.sql not run yet: nothing is recorded
+    const edits=DocModel.fieldEdits(ai,ai,user,RUN_FIELDS).map(e=>({...e,run_id:data.id,processed_path:d.assetId||null}));
+    if(edits.length)await sb.from("document_field_edits").insert(edits);
+  }catch(e){/* recording must never block bookkeeping */}
+}
 async function processOne(q){
   q.status="reading";renderQueue();
   const prog=m=>{const e=document.getElementById("prog_"+q.id);if(e)e.textContent=m};
@@ -978,6 +994,7 @@ async function processOne(q){
     q.status="manual";q.errKey="eFile";q.errExtra=e&&e.message||"";q.draft={type:"expense",date:"",vendor:"",invoiceNo:"",items:"",amt10:0,amt8:0,amt0:0,debit:"消耗品費",credit:settings.card,bizRatio:100,memo:""};renderQueue();return;
   }
   q.blob=blob;q.src=src;
+  try{q.sha=await DocModel.sha256(q.file)}catch(e){q.sha=null}
   const base={type:"expense",date:"",vendor:"",invoiceNo:"",items:"",amt10:0,amt8:0,amt0:0,debit:"消耗品費",credit:settings.card,bizRatio:100,memo:""};
   try{
     // A PDF with real text (most e-receipts) is read directly — exact, no OCR needed.
@@ -1023,6 +1040,9 @@ async function processOne(q){
       q.draft.aiNotes=t("splitNote",{n:q.draft.split.length})+(q.draft.aiNotes?" "+q.draft.aiNotes:"");
     }
     if(hint&&cur==="JPY") q.draft.aiNotes=(q.draft.aiNotes?q.draft.aiNotes+" ":"")+t({meal:"mealNote",golf:"golfNote"}[hint]||"food8Note");
+    // what was read and by whom (kept in document_runs when the receipt is confirmed)
+    q.read={meta:r._meta||(r.fromPdfText?{provider:"pdf-text",model:"pdf.js",promptVersion:"receipt-rules-v1"}:{provider:"tesseract",model:"tesseract.js",promptVersion:"receipt-rules-v1"}),raw:r};
+    q.aiDraft=cleanDraft(q.draft);
     q.status="review";q.errKey=null;
   }catch(e){
     const m={auth:"eAuthApi",rate_limited:"eRate",invalid_json:"eJson",ocr:"eOcr"};
@@ -1067,7 +1087,12 @@ function renderQueue(){
           const ext=q.isPdf?"pdf":"jpg";
           const path=`${uid}/${(d.date||todayStr()).slice(0,7)}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2,6)}.${ext}`;
           const {error}=await sb.storage.from("receipts").upload(path,q.isPdf?q.file:q.blob,{contentType:q.isPdf?"application/pdf":"image/jpeg",upsert:false});
-          if(error)throw error;d.assetId=path}}
+          if(error)throw error;d.assetId=path;
+          // the untouched original is kept next to the processed copy (a PDF is stored as-is already)
+          if(!q.isPdf){const oe=(String(q.file.name||"").match(/\.([a-z0-9]{1,5})$/i)||["","bin"])[1].toLowerCase();
+            const op=path.replace(/\.jpg$/,".orig."+oe);
+            const o=await sb.storage.from("receipts").upload(op,q.file,{contentType:q.file.type||"application/octet-stream",upsert:false});
+            q.origPath=o.error?null:op}else q.origPath=path}}
         catch(e){msg.textContent=t("photoFail",{e:e.message||e.code})}
         try{
           const es=draftEntries(d);
@@ -1078,7 +1103,8 @@ function renderQueue(){
             let n=0;d.split.forEach(l=>{if(totalOf(l)>0&&!l.id)l.id=base+"-"+(++n)});
             for(const e of draftEntries(d)) await saveEntry(e,{noReload:true});
             await loadEntries();
-          }else await saveEntry(d);
+          }else d.id=await saveEntry(d);
+          recordRun(q,d,isSplit(d)?d.split.filter(l=>l.id).map(l=>l.id):[d.id]);
           q.draft=d;q.status="saved";renderQueue();toast(es.length>1?t("tPostedN",{n:es.length}):t("tPosted",{v:d.vendor||d.items}));
           if(q.driveId){const list=(settings.driveImported||[]).filter(r=>r!==q.driveId&&!(r&&r.id===q.driveId));list.push({id:q.driveId,path:d.assetId||""});settings.driveImported=list;persistSettings()}}
         catch(e){btn.disabled=false;msg.textContent=e.message||t("saveFail");msg.style.color="var(--shu)"}
@@ -1123,7 +1149,11 @@ function openEditor(d,isNew){
       try{
         const {error}=await sb.from("entries").delete().eq("id",d.id);if(error)throw error;
         await sb.rpc("purge_entry_history",{ids:[d.id]});                       // no change history is kept for a deleted record
-        if(d.assetId&&!entries.some(x=>x.id!==d.id&&x.assetId===d.assetId))await sb.storage.from("receipts").remove([d.assetId]);
+        if(d.assetId&&!entries.some(x=>x.id!==d.id&&x.assetId===d.assetId)){
+          // its readings, corrections and the untouched original go too
+          const pr=await sb.rpc("purge_document_records",{paths:[d.assetId]});
+          await sb.storage.from("receipts").remove([...new Set([d.assetId,...((pr&&pr.data&&pr.data.paths)||[])])]);
+        }
         $("#editDlg").close();toast(t("tDeleted"));await loadEntries();          // the sync then deletes its journal entries
       }
       catch(e){body.querySelector("[data-msg]").textContent=t("saveFail")+": "+(e.message||e.code)}

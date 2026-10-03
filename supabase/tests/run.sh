@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/../.."
 DB=receipt_ledger_test
 psql -qc "drop database if exists $DB" -c "create database $DB"
-psql -q -v ON_ERROR_STOP=1 -d $DB -f supabase/tests/supabase_stub.sql -f supabase/schema.sql -f supabase/002_accounting_core.sql -f supabase/002_accounting_core.sql 2>&1 | grep -v NOTICE || true
+psql -q -v ON_ERROR_STOP=1 -d $DB -f supabase/tests/supabase_stub.sql -f supabase/schema.sql -f supabase/002_accounting_core.sql -f supabase/002_accounting_core.sql -f supabase/003_document_intelligence.sql -f supabase/003_document_intelligence.sql 2>&1 | grep -v NOTICE || true
 echo "--- integrity rules"
 psql -q -d $DB -f supabase/tests/accounting_core_test.sql 2>&1 | sed 's/^ *//' | grep -v '^$'
 echo "--- data upgrade through import_journal"
@@ -77,3 +77,5 @@ update fiscal_years set locked = false where year = 2026;
 set request.jwt.claim.sub = '55555555-5555-5555-5555-555555555555';
 select case when (public.purge_journal(array['cccccccc-0000-0000-0000-000000000002']::uuid[]))->>'entries' = '0' then 'PASS  another user cannot purge it' else 'FAIL  cross-user purge' end;
 SQL
+echo "--- document intelligence (003)"
+psql -q -d $DB -f supabase/tests/document_intelligence_test.sql 2>&1 | sed 's/^ *//' | grep -E 'PASS|FAIL|ERROR'

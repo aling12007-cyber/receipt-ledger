@@ -7,6 +7,9 @@ const LANG_NAME = { en: "English", ja: "Japanese", zh: "Traditional Chinese" };
 const MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_B64 = 4_000_000; // Vercel request bodies are capped at 4.5 MB // ~3 MB image; the page sends ~300 KB JPEGs
 
+// Prompt version: stored with every reading (document_runs.prompt_version). Bump it whenever the prompt changes.
+export const PROMPT_VERSION = "receipt-parser-v1";
+
 export function buildPrompt({ lang, year, hint, accounts, pdfText }) {
   const nl = LANG_NAME[lang] || "English";
   const list = (Array.isArray(accounts) && accounts.length ? accounts : DEFAULT_ACCOUNTS).filter((a) => DEFAULT_ACCOUNTS.includes(a));
@@ -73,7 +76,8 @@ export default async function handler(req, res) {
   const data = await r.json();
   const text = (data.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
   try {
-    return res.status(200).json(parseJson(text));
+    const model = data.model || String(process.env.ANTHROPIC_MODEL || "").trim() || "claude-sonnet-5-5";
+    return res.status(200).json({ ...parseJson(text), _meta: { provider: "vision", model, promptVersion: PROMPT_VERSION } });
   } catch {
     return res.status(502).json({ error: "The AI reply was not valid JSON" });
   }
