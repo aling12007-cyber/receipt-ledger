@@ -44,7 +44,30 @@
       .map((x) => ({ ...x, days: Math.round((Date.parse(x.date) - Date.parse(today)) / 864e5) }));
   }
 
-  const api = { due, forYear, upcoming };
+  /**
+   * iCalendar file (.ics) with all-day events and reminders 7 days and 1 day before, for a phone or desktop calendar.
+   * @param {Array<{ date: string, title: string, description?: string, url?: string, uid: string }>} events
+   */
+  function toICS(events, stamp) {
+    const esc = (v) => String(v || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+    const d8 = (d) => d.replace(/-/g, "");
+    const next = (d) => { const t = new Date(Date.parse(d + "T00:00:00Z") + 864e5); return t.toISOString().slice(0, 10).replace(/-/g, ""); };
+    const now = (stamp || new Date().toISOString()).replace(/[-:]/g, "").replace(/\.\d+/, "");
+    // lines longer than 75 octets are folded (RFC 5545), counting UTF-8 bytes so Japanese text is not cut too late
+    const bytes = (ch) => { const c = ch.codePointAt(0) || 0; return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; };
+    const fold = (l) => { const out = []; let cur = "", n = 0; for (const ch of l) { const b = bytes(ch); if (n + b > 74) { out.push(cur); cur = " "; n = 1; } cur += ch; n += b; } out.push(cur); return out.join("\r\n"); };
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Receipt Ledger//Tax deadlines//JA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:税金の期限"];
+    for (const e of events) {
+      lines.push("BEGIN:VEVENT", `UID:${e.uid}@receipt-ledger`, `DTSTAMP:${now}`, `DTSTART;VALUE=DATE:${d8(e.date)}`, `DTEND;VALUE=DATE:${next(e.date)}`,
+        `SUMMARY:${esc(e.title)}`, ...(e.description ? [`DESCRIPTION:${esc(e.description)}`] : []), ...(e.url ? [`URL:${e.url}`] : []), "TRANSP:TRANSPARENT");
+      for (const tr of ["-P7D", "-P1D"]) lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(e.title)}`, `TRIGGER:${tr}`, "END:VALARM");
+      lines.push("END:VEVENT");
+    }
+    lines.push("END:VCALENDAR");
+    return lines.map(fold).join("\r\n") + "\r\n";
+  }
+
+  const api = { due, forYear, upcoming, toICS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TaxCalendar = api;
 })(typeof window !== "undefined" ? window : globalThis);

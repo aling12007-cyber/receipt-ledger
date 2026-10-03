@@ -179,7 +179,30 @@
     return out;
   }
 
-  const api = { isPdf, isHeic, isImage, accepted, linesFromTextItems, readPdf, heicToJpeg, canDecode, pickFromDrive, handleRedirect, redirectUri };
+  // Backup file into a "Receipt Ledger バックアップ" folder in the user's Drive. drive.file only lets the site see the
+  // folder and files it made itself. Returns { redirecting } when sign-in is needed first, else { id, name }.
+  const FOLDER = "Receipt Ledger バックアップ";
+  async function driveJson(url, tk, init) {
+    const r = await fetch(url, { ...(init || {}), headers: { Authorization: "Bearer " + tk, ...((init && init.headers) || {}) } });
+    if (!r.ok) throw Object.assign(new Error(`Drive ${r.status}`), { code: r.status === 401 ? "expired" : "drive" });
+    return r.json();
+  }
+  async function saveToDrive(cfg, blob, name) {
+    const tk = savedToken();
+    if (!tk) { startSignIn(cfg.googleClientId); return { redirecting: true }; }
+    const q = encodeURIComponent(`name='${FOLDER}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+    const found = await driveJson(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`, tk);
+    let folder = found.files && found.files[0] && found.files[0].id;
+    if (!folder) folder = (await driveJson("https://www.googleapis.com/drive/v3/files?fields=id", tk, { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: FOLDER, mimeType: "application/vnd.google-apps.folder" }) })).id;
+    const boundary = "rl" + Math.random().toString(36).slice(2);
+    const meta = JSON.stringify({ name, parents: [folder], mimeType: "application/json" });
+    const body = new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n`, blob, `\r\n--${boundary}--`]);
+    const r = await driveJson("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name", tk, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
+    return { id: r.id, name: r.name, folder: FOLDER };
+  }
+
+  const api = { isPdf, isHeic, isImage, accepted, linesFromTextItems, readPdf, heicToJpeg, canDecode, pickFromDrive, saveToDrive, handleRedirect, redirectUri };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Imports = api;
 })(typeof window !== "undefined" ? window : globalThis);

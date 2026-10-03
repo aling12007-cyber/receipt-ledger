@@ -6,13 +6,14 @@
 //   history, then the receipt rules) — a suggestion the user confirms, never booked silently.
 // Exposes window.BankImport (and module.exports for tests).
 (function (root) {
+  // Header names used by Japanese banks and card companies (the CSV layouts differ; these cover the common wordings).
   const H = {
-    date: /^(日付|取引日|お取引日|利用日|ご利用日|ご利用年月日|利用年月日|年月日|取扱日|約定日|date|transaction date)$/i,
-    desc: /^(摘要|内容|お取引内容|取引内容|お取扱内容|利用店名|ご利用店名|ご利用先|利用先|ご利用店名・商品名|利用店名・商品名|店名|お預り・お引出し内容|備考|メモ|description|details|merchant)$/i,
-    out: /^(お支払金額|お支払い金額|支払金額|出金|出金金額|お引出し|お引出し金額|お引出金額|引出|引出金額|引出額|ご利用金額|利用金額|ご請求金額|請求金額|支払額|withdrawal|debit|amount out)$/i,
-    in: /^(お預り金額|お預かり金額|預り金額|お預入れ|お預入れ金額|預入|預入金額|入金|入金金額|入金額|deposit|credit|amount in)$/i,
-    amount: /^(金額|取引金額|amount)$/i,
-    balance: /^(残高|差引残高|お取引後残高|balance)$/i,
+    date: /^(日付|取引日|お取引日|取引年月日|お取引年月日|利用日|ご利用日|ご利用年月日|利用年月日|ご利用日付|利用日付|年月日|取扱日|お取扱日|約定日|計算日|入出金日|操作日|date|transaction date)$/i,
+    desc: /^(摘要|摘要内容|内容|お取引内容|取引内容|お取扱内容|入出金内容|お取引|取引区分|利用店名|ご利用店名|ご利用先|利用先|ご利用店名・商品名|利用店名・商品名|ご利用店名（海外ご利用地）|ご利用内容|利用内容|店名|加盟店名|お預り・お引出し内容|詳細|詳細1|備考|メモ|description|details|merchant)$/i,
+    out: /^(お支払金額|お支払い金額|支払金額|支払い金額|お支払|出金|出金金額|出金額|お引出し|お引出し金額|お引出金額|お引出|引出|引出金額|引出額|払出金額|払戻金額|ご利用金額|利用金額|ご利用金額（円）|ご請求金額|請求金額|支払総額|支払額|withdrawal|debit|amount out)$/i,
+    in: /^(お預り金額|お預かり金額|預り金額|預かり金額|お預入れ|お預入れ金額|お預入金額|預入|預入金額|受入金額|入金|入金金額|入金額|deposit|credit|amount in)$/i,
+    amount: /^(金額|取引金額|入出金|入出金額|入出金金額|amount)$/i,
+    balance: /^(残高|差引残高|お取引後残高|取引後残高|現在高|balance)$/i,
   };
   const Z2H = (s) => String(s || "").replace(/[０-９Ａ-Ｚａ-ｚ．，－／：]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/　/g, " ");
   const norm = (s) => Z2H(s).replace(/[\s"']/g, "").replace(/[（(].*?[)）]$/, "");
