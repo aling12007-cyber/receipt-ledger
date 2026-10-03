@@ -648,14 +648,20 @@
   }
   // Crop to the paper, enlarge so text is big enough for Tesseract, grey + 1–99% contrast stretch.
   // (Tested on real receipts: hard black/white thresholding hurt thin Latin shop names, so we keep grey.)
-  async function prepare(blob, mode) {
+  // pre (from Document Intelligence preprocessing): { angle (deskew, degrees), turns (clockwise quarter turns), denoise, sharpen }
+  async function prepare(blob, mode, pre) {
     const url = URL.createObjectURL(blob);
+    const DP = root.DocPreprocess;
     try {
       const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
       const s0 = Math.min(1, 4200 / Math.max(img.naturalWidth, img.naturalHeight));
-      const W = Math.round(img.naturalWidth * s0), H = Math.round(img.naturalHeight * s0);
-      const c0 = document.createElement("canvas"); c0.width = W; c0.height = H;
-      const x0c = c0.getContext("2d", { willReadFrequently: true }); x0c.drawImage(img, 0, 0, W, H);
+      let W = Math.round(img.naturalWidth * s0), H = Math.round(img.naturalHeight * s0);
+      let c0 = document.createElement("canvas"); c0.width = W; c0.height = H;
+      let x0c = c0.getContext("2d", { willReadFrequently: true }); x0c.drawImage(img, 0, 0, W, H);
+      if (pre && DP && (pre.angle || pre.turns)) {
+        c0 = DP.rotateCanvas(c0, pre.angle || 0, pre.turns || 0); W = c0.width; H = c0.height;
+        x0c = c0.getContext("2d", { willReadFrequently: true });
+      }
       const p0 = x0c.getImageData(0, 0, W, H).data, g = new Float32Array(W * H);
       for (let i = 0, j = 0; i < p0.length; i += 4, j++) g[j] = 0.299 * p0[i] + 0.587 * p0[i + 1] + 0.114 * p0[i + 2];
       const box = paperBox(g, W, H) || { x0: 0, y0: 0, w: W, h: H };
@@ -679,6 +685,12 @@
       const k = 255 / Math.max(1, hi - lo);
       for (let i = 0, j = 0; i < p.length; i += 4, j++) { const v = (gg[j] - lo) * k; p[i] = p[i + 1] = p[i + 2] = v; }
       ctx.putImageData(d, 0, 0);
+      if (pre && DP && (pre.denoise || pre.sharpen)) {
+        let g = DP.fromCanvas(c);
+        if (pre.denoise) g = DP.denoise(g);
+        if (pre.sharpen) g = DP.sharpen(g, pre.sharpen);
+        return DP.toCanvas(g);
+      }
       return c;
     } finally { URL.revokeObjectURL(url); }
   }
@@ -695,7 +707,9 @@
   async function readReceipt(blob, opts) {
     progressCb = opts && opts.onProgress;
     const src = (opts && opts.original) || blob;
-    const prep = async (mode) => { try { return await prepare(src, mode); } catch (e) { return await prepare(blob, mode); } };
+    const pre = opts && opts.preprocess;
+    // the fallback image (blob) is the processed copy, already turned and deskewed
+    const prep = async (mode) => { try { return await prepare(src, mode, pre); } catch (e) { return await prepare(blob, mode, pre && { ...pre, angle: 0, turns: 0 }); } };
     const read = async (canvas) => {
       // Japanese + English covers almost every receipt issued in Japan; re-read with the right models
       // when the receipt is Chinese or English.

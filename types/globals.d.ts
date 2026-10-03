@@ -1,6 +1,6 @@
 // Globals shared between the browser modules (each module registers itself on window when not under Node).
 interface Window {
-  Books: any; Filing: any; Accounts: any; TaxRules: any; crypto: Crypto; ReceiptOCR: any; Imports: any; Migrate: any; Journal: any; LedgerService: any; Sync: any; Ledger: any; Tips: any; DocModel: any;
+  Books: any; Filing: any; Accounts: any; TaxRules: any; crypto: Crypto; ReceiptOCR: any; Imports: any; Migrate: any; Journal: any; LedgerService: any; Sync: any; Ledger: any; Tips: any; DocModel: any; DocQuality: any; DocPreprocess: any;
   Tesseract: any; pdfjsLib: any; heic2any: any; gapi: any; google: any;
 }
 declare var module: { exports: any } | undefined;
