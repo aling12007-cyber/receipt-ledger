@@ -84,8 +84,9 @@
   <aside class="side" id="sideNav" aria-label="Menu">
     <div class="brand side-brand"><div class="seal seal-sl" aria-hidden="true">S<i>&amp;</i>L</div><div><div class="side-mark">Smart Ledger</div><b class="side-name" id="sideBiz">Smart Ledger</b></div></div>
     <nav class="sidenav">
-      <button data-tab="guide" data-i18n="navGuide"></button>
       <button data-tab="summary" data-i18n="navDash"></button>
+      <button data-tab="setup" data-i18n="navSetup"></button>
+      <button data-tab="guide" data-i18n="navGuide"></button>
       <div class="navgrp" data-i18n="navGrpDaily"></div>
       <button data-tab="scan" data-i18n="navReceipts"></button>
       <button data-tab="entry" data-i18n="tabEntry"></button>
@@ -275,7 +276,13 @@
   <section data-panel="invoices" hidden class="stack">
     <div class="sheet pad stack" id="invList"></div>
     <div class="sheet pad stack" id="invEdit" hidden></div>
-    <div class="sheet pad stack" id="invIssuer"></div>
+    <p class="small muted" style="margin:0"><a href="#/setup" data-goset data-i18n="issuerMoved"></a></p>
+  </section>
+  <section data-panel="setup" hidden class="stack">
+    <div class="sheet pad stack"><h2 data-i18n="navSetup"></h2><p class="small muted" style="margin:0" data-i18n="spIntro"></p><div id="spSteps" class="stack" style="gap:0"></div></div>
+    <div class="sheet pad stack" id="spBasic"><div class="sp-head"><span class="gd-no">1</span><div><h2 data-i18n="spS1"></h2><div class="small muted" data-i18n="spS1h"></div></div></div><div id="setupBody" class="stack"></div></div>
+    <div class="sheet pad stack"><div class="sp-head"><span class="gd-no">2</span><div><h2 data-i18n="spS2"></h2><div class="small muted" data-i18n="spS2h"></div></div></div><div id="invIssuer" class="stack"></div></div>
+    <div class="sheet pad stack"><div class="sp-head"><span class="gd-no">3</span><div><h2 data-i18n="spS3"></h2><div class="small muted" data-i18n="spS3h"></div></div></div><div id="recBox" class="stack"></div></div>
   </section>
   <section data-panel="ctax" hidden class="stack">
     <div class="note info" data-i18n="ctIntro"></div>
@@ -385,7 +392,7 @@
       <p class="small muted" style="margin:0" data-i18n="qeRecentSub"></p>
       <div class="tablewrap"><table class="jtable"><tbody id="qeRecent"></tbody></table></div>
     </div>
-    <div class="sheet pad stack" id="recBox"></div>
+    <p class="small muted" style="margin:0"><a href="#/setup" data-goset data-i18n="recMoved"></a></p>
     <details class="sheet pad" id="accGloss"><summary style="cursor:pointer;font-weight:600" data-i18n="agTitle"></summary><div id="accGlossBody" class="stack" style="gap:0;margin-top:10px"></div></details>
   </section>
 
@@ -459,10 +466,6 @@
   <div class="hd"><h3 id="editTitle"></h3><button class="btn ghost" data-close data-i18n="close"></button></div>
   <div class="bd" id="editBody"></div>
 </dialog>
-<dialog id="setupDlg">
-  <div class="hd"><h3 data-i18n="suTitle"></h3><button class="btn ghost" data-suclose data-i18n="close"></button></div>
-  <div class="bd stack" id="setupBody"></div>
-</dialog>
 <dialog id="imgView">
   <div class="hd"><h3 data-i18n="receiptImg"></h3><button class="btn ghost" data-close data-i18n="close"></button></div>
   <div class="bd"><img alt="" id="imgViewImg"></div>
@@ -532,7 +535,7 @@ function banner(key,kind,extra){bannerState.push({key,kind,extra:extra||""});ren
 function renderBanners(){$("#banners").innerHTML=bannerState.map(b=>`<div class="banner ${b.kind}">${esc(t(b.key)+b.extra)}</div>`).join("")}
 
 // ===== navigation: sidebar (wide screens), bottom bar + slide-in menu (phones); routes #/<page> =====
-const PAGES={summary:"navDash",entry:"tabEntry",journal:"tabJournal",ledger:"navLedger",tb:"navTB",scan:"navReceipts",filing:"navFiling",settings:"tabSettings",eval:"evTitle",return:"navReturn",ctax:"navCtax",bank:"navBank",invoices:"navInvoices",guide:"navGuide"};
+const PAGES={summary:"navDash",entry:"tabEntry",journal:"tabJournal",ledger:"navLedger",tb:"navTB",scan:"navReceipts",filing:"navFiling",settings:"tabSettings",eval:"evTitle",return:"navReturn",ctax:"navCtax",bank:"navBank",invoices:"navInvoices",guide:"navGuide",setup:"navSetup"};
 let curTab="summary";
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{showTab(b.dataset.tab);closeMenu()}));
 function showTab(tb,fromHash){
@@ -694,7 +697,7 @@ async function loadEntries(){
     out.push(...data);if(data.length<1000)break;
   }
   entries=out.map(fromRow);fillYears();carryForward();render();scheduleSync();runRecurring();
-  if(!settings.setupDone&&!entries.length&&!setupShown){setupShown=true;if(curTab==="summary"&&!location.hash.match(/^#\/\w/))showTab("guide",true);openSetup()}
+  if(!settings.setupDone&&!entries.length&&!setupShown){setupShown=true;if(curTab==="summary")showTab("setup")}
   if(!pendingChecked){pendingChecked=true;restorePending()}
 }
 async function saveEntry(d,opt){
@@ -1315,8 +1318,8 @@ function labelCells(tbl){
   mo.observe(document.body,{childList:true,subtree:true})}
 // ===== 初期設定 (first-run setup): everything the other pages need, asked once in plain words =====
 let setupShown=false,pendingChecked=false;
-function openSetup(){
-  const box=$("#setupBody"),is=issuer(),y0=firstDataYear()||new Date().getFullYear();
+function renderSetupForm(){
+  const box=$("#setupBody");if(!box)return;const is=issuer(),y0=firstDataYear()||new Date().getFullYear();
   const radio=(name,val,cur,label,help)=>`<label class="opt"><input type="radio" name="${name}" value="${val}" ${String(cur)===String(val)?"checked":""}><span><b>${esc(label)}</b>${help?`<small>${esc(help)}</small>`:""}</span></label>`;
   const open=((settings.bs||{})[String(y0)]||{}).open||{};
   const pay=settings.card==="未払金"?"card":settings.card==="普通預金"?"bank":"private";
@@ -1337,12 +1340,10 @@ function openSetup(){
       <div class="grid" style="margin-top:8px"><label class="f">${esc(t("suCash"))}<input id="suCash" type="number" class="num" inputmode="numeric" value="${open.cash??""}" placeholder="0"></label>
       <label class="f">${esc(t("suBank"))}<input id="suBank" type="number" class="num" inputmode="numeric" value="${open.bank??""}" placeholder="0"></label>
       <label class="f">${esc(t("suAr"))}<input id="suAr" type="number" class="num" inputmode="numeric" value="${open.ar??""}" placeholder="0"></label></div></div>
-    <div class="row"><button class="btn primary" id="suSave">${esc(t("suSave"))}</button><button class="btn ghost" data-suclose>${esc(t("suLater"))}</button><span class="small" id="suMsg"></span></div>`;
+    <div class="row"><button class="btn primary" id="suSave">${esc(t("suSave"))}</button><span class="small" id="suMsg"></span></div>`;
   const val=n=>{const el=box.querySelector(`input[name="${n}"]:checked`);return el?el.value:""};
   const sync=()=>{$("#suRegBox").hidden=val("suCtax")==="exempt";$("#suOpenBox").hidden=!/^blue(65|55)$/.test(val("suFiling"))};
   box.onchange=sync;sync();
-  box.querySelectorAll("[data-suclose]").forEach(b=>b.onclick=()=>$("#setupDlg").close());
-  $("#setupDlg").querySelector(".hd [data-suclose]").onclick=()=>$("#setupDlg").close();
   $("#suSave").onclick=async()=>{
     const reg=$("#suReg").value.replace(/[\s-]/g,"").toUpperCase();
     if(val("suCtax")!=="exempt"&&reg&&!Invoices.isRegNo(reg)){$("#suMsg").textContent=t("suRegBad");return}
@@ -1358,11 +1359,19 @@ function openSetup(){
     }
     settings.setupDone=true;
     const e=await persistSettings();if(e){$("#suMsg").textContent=t("saveFail");return}
-    $("#setupDlg").close();fillSettings();carryForward();scheduleSync();render();toast(t("suDone"));
+    fillSettings();carryForward();scheduleSync();renderSteps();toast(t("suDone"));$("#suMsg").textContent=t("suDone");
   };
-  if(!$("#setupDlg").open)$("#setupDlg").showModal();
 }
-$("#setupOpen").onclick=openSetup;
+// 初期設定 page: the three things set once, each with its status
+function renderSteps(){
+  const box=$("#spSteps");if(!box)return;
+  const is=issuer(),st=[["spS1",settings.setupDone?"done":"todo"],["spS2",is.name&&Invoices.isRegNo(is.regNo)?"done":"opt"],["spS3",(settings.recurring||[]).length?"done":"opt"]];
+  box.innerHTML=st.map(([k,v],i)=>`<a class="sp-step" href="#" data-spgo="${i}"><span class="gd-no">${i+1}</span><span class="grow">${esc(t(k))}</span><span class="chip ${v==="done"?"ok":v==="todo"?"low":"inc"}">${esc(t("spSt_"+v))}</span></a>`).join("");
+  box.querySelectorAll("[data-spgo]").forEach(a=>a.onclick=e=>{e.preventDefault();const el=$("[data-panel=setup]").children[+a.dataset.spgo+1];if(el)el.scrollIntoView({behavior:"smooth",block:"start"})});
+}
+function renderSetup(){renderSetupForm();renderIssuer();renderRecurring();renderSteps()}
+$("#setupOpen").onclick=()=>showTab("setup");
+document.addEventListener("click",e=>{const a=e.target.closest("[data-goset]");if(a){e.preventDefault();showTab("setup")}});
 // ===== 税制ルール: which rules the app uses, their sources, and a yearly review =====
 const rulesUpTo=()=>Math.max(...Object.keys(IncomeTax.BASIC).map(Number));
 function renderRules(){
@@ -1574,7 +1583,7 @@ function renderIssuer(){
   const f=(k,lab,ph="")=>`<label class="f${k==="address"||k==="bank"?" span2":""}">${esc(t(lab))}<input data-is="${k}" value="${esc(is[k]||"")}" placeholder="${esc(ph)}"></label>`;
   box.innerHTML=`<h3>${esc(t("invIssuer"))}</h3><p class="small muted" style="margin:0">${esc(t("invIssuerSub"))}</p>
     <div class="grid">${f("name","invIsName")}${f("regNo","regNo","T1234567890123")}${f("address","invIsAddr")}${f("tel","invIsTel")}${f("bank","invIsBank",t("invIsBankPh"))}</div><span class="small muted" id="isMsg"></span>`;
-  box.querySelectorAll("[data-is]").forEach(el=>el.oninput=()=>{let v=el.value;if(el.dataset.is==="regNo")v=v.replace(/[\s-]/g,"").toUpperCase();issuer()[el.dataset.is]=v;clearTimeout(renderIssuer.tm);renderIssuer.tm=setTimeout(async()=>{const e=await persistSettings();$("#isMsg").textContent=e?t("saveFail"):t("bsSaved")},600)});
+  box.querySelectorAll("[data-is]").forEach(el=>el.oninput=()=>{let v=el.value;if(el.dataset.is==="regNo")v=v.replace(/[\s-]/g,"").toUpperCase();issuer()[el.dataset.is]=v;clearTimeout(renderIssuer.tm);renderIssuer.tm=setTimeout(async()=>{const e=await persistSettings();$("#isMsg").textContent=e?t("saveFail"):t("bsSaved");renderSteps()},600)});
 }
 function renderInvEdit(){
   const box=$("#invEdit"),v=invEditing;
@@ -1761,13 +1770,13 @@ function renderRecurring(){
       </div>
       <div class="row" style="margin-top:10px"><button class="btn primary" id="recSave">${esc(t("recSave"))}</button><span class="small" id="recMsg"></span></div>
     </details>`;
-  box.querySelectorAll("[data-recdel]").forEach(b=>b.onclick=()=>{settings.recurring.splice(+b.dataset.recdel,1);persistSettings();renderRecurring()});
+  box.querySelectorAll("[data-recdel]").forEach(b=>b.onclick=()=>{settings.recurring.splice(+b.dataset.recdel,1);persistSettings();renderRecurring();renderSteps()});
   $("#recSave").onclick=()=>{
     const v=k=>box.querySelector(`[data-r="${k}"]`).value.trim();
     if(!v("name")||!(+v("amount")>0)||!v("start")){$("#recMsg").textContent=t("recNeed");return}
     settings.recurring=[...rules,{id:Date.now().toString(36),name:v("name"),vendor:v("vendor"),debit:v("debit"),amount:Math.round(+v("amount")),rate:v("rate"),
       bizRatio:Math.min(100,Math.max(0,+v("bizRatio")||100)),credit:v("credit"),day:Math.min(31,Math.max(1,+v("day")||1)),start:v("start"),end:v("end"),auto:v("auto")==="1"}];
-    persistSettings();renderRecurring();runRecurring();
+    persistSettings();renderRecurring();renderSteps();runRecurring();
   };
 }
 // ===== やること (to-do) and 期限 (deadlines) on the dashboard =====
@@ -1792,7 +1801,7 @@ function renderTodos(){
   const list=computeTodos();
   box.innerHTML=`<h2>${esc(t("tdTitle"))}</h2>`+(list.length?list.map((x,i)=>`<div class="todo"><span>${esc(t(x.key,{y:x.y}))}</span><span class="row" style="gap:10px"><span class="cnt">${esc(String(x.n))}</span><button class="btn small" data-todo="${i}">${esc(t(x.act==="recurring"?"tdDo":"tdOpen"))}</button></span></div>`).join("")
     :`<p class="small muted" style="margin:0">${esc(t("tdNone"))}</p>`);
-  box.querySelectorAll("[data-todo]").forEach(b=>b.onclick=()=>{const x=list[+b.dataset.todo];if(x.act==="recurring")confirmRecurring();else if(x.act==="setup")openSetup();else showTab(x.tab)});
+  box.querySelectorAll("[data-todo]").forEach(b=>b.onclick=()=>{const x=list[+b.dataset.todo];if(x.act==="recurring")confirmRecurring();else if(x.act==="setup")showTab("setup");else showTab(x.tab)});
 }
 function renderDeadlines(){
   const box=$("#deadlineCard");if(!box||typeof TaxCalendar==="undefined")return;
@@ -2534,6 +2543,7 @@ function render(){
   if(a==="bank")renderBank();
   if(a==="invoices")renderInvoices();
   if(a==="guide")renderGuide();
+  if(a==="setup")renderSetup();
 }
 {const m=location.hash.match(/^#\/(\w+)/);let tb=m&&m[1];try{tb=tb||localStorage.getItem("tab")}catch(e){}showTab(tb||"summary",true)}
 applyLang();

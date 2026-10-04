@@ -22,9 +22,9 @@ window.GUIDE = {
       { id: "setup", title: "最初的設定（只做一次，約 10 分鐘）", time: "第一天",
         items: [
           { h: "1. 建立帳號、登入", steps: ["在登入畫面輸入電子郵件和 8 個字元以上的密碼。", "按「還沒有帳號？建立一個」。之後都用同一組登入。", "手機用瀏覽器的「加入主畫面」，就能像 App 一樣打開。"] },
-          { h: "2. 回答初始設定的 6 個問題", p: ["第一次登入會自動出現。每題都有白話說明，不確定就選建議的選項，之後隨時可以在「設定」→「重新初始設定」修改。"], steps: ["屋號或姓名。", "申報方式：已提出青色申告承認申請書並用 e-Tax 的話選「青色 65 萬円」。", "消費稅：沒有做インボイス登錄就選「免稅事業者」。", "工作支出怎麼付：用私人的錢或信用卡就選第一個（事業主借）。", "是否在家工作：是的話，房租等會提醒你按比例列經費。", "開始記帳那年 1 月 1 日的餘額：沒有事業專用帳戶就填 0。"], go: "settings" },
-          { h: "3. 登錄每個月固定的支出", p: ["房租、手機費、網路費、訂閱服務等每月一樣的支出，登錄一次就會每月自動記帳。"], go: "entry", goLabel: "取引登錄頁最下方「固定支出」" },
-          { h: "4. 有開請款單的人：填開立人資料", p: ["在「請款單」頁最下方填姓名、登錄番號、地址、匯款帳戶，請款單上才會印出來。"], go: "invoices" },
+          { h: "2. 回答初始設定的 6 個問題", p: ["第一次登入會自動打開「初期設定」頁。每題都有白話說明，不確定就選建議的選項，之後隨時可以回到「初期設定」修改。"], steps: ["屋號或姓名。", "申報方式：已提出青色申告承認申請書並用 e-Tax 的話選「青色 65 萬円」。", "消費稅：沒有做インボイス登錄就選「免稅事業者」。", "工作支出怎麼付：用私人的錢或信用卡就選第一個（事業主借）。", "是否在家工作：是的話，房租等會提醒你按比例列經費。", "開始記帳那年 1 月 1 日的餘額：沒有事業專用帳戶就填 0。"], go: "setup" },
+          { h: "3. 登錄每個月固定的支出", p: ["在「初期設定」的第 3 步登錄房租、手機費、網路費、訂閱服務等每月一樣的支出，之後每月自動記帳。"], go: "setup" },
+          { h: "4. 有開請款單的人：填開立人資料", p: ["在「初期設定」的第 2 步填姓名、登錄番號、地址、匯款帳戶，請款單上才會印出來。"], go: "setup" },
         ] },
       { id: "daily", title: "每天要做的事（每次 1 分鐘）", time: "有收支的時候",
         items: [
@@ -81,9 +81,9 @@ window.GUIDE = {
       { id: "setup", title: "最初の設定（1回だけ・約10分）", time: "初日",
         items: [
           { h: "1. アカウントを作ってログイン", steps: ["ログイン画面でメールアドレスと8文字以上のパスワードを入力します。", "「アカウントを作成」を押します。次からは同じものでログインします。", "スマホはブラウザの「ホーム画面に追加」で、アプリのように開けます。"] },
-          { h: "2. 初期設定の6つの質問に答える", p: ["初回ログインで自動的に表示されます。わからないときはおすすめを選べば大丈夫。あとから「設定」→「初期設定をやり直す」で変えられます。"], steps: ["屋号または氏名。", "申告の方法：青色申告承認申請書を出していて e-Tax なら「青色65万円」。", "消費税：インボイス登録をしていなければ「免税事業者」。", "支払い方法：個人のお金・カードなら一番上（事業主借）。", "自宅で仕事：はいなら家賃などの按分を案内します。", "帳簿を始める年の1月1日の残高：事業用口座がなければ0。"], go: "settings" },
-          { h: "3. 毎月決まった支払いを登録", p: ["家賃・携帯代・ネット代・サブスクなど毎月同じ支払いは、一度登録すれば毎月自動で記帳されます。"], go: "entry", goLabel: "取引登録ページ下の「定期取引」" },
-          { h: "4. 請求書を出す人：発行者情報を入力", p: ["「請求書」ページの一番下で、氏名・登録番号・住所・振込先を入れておくと請求書に印字されます。"], go: "invoices" },
+          { h: "2. 初期設定の6つの質問に答える", p: ["初回ログインで「初期設定」ページが開きます。わからないときはおすすめを選べば大丈夫。あとからいつでも「初期設定」で変えられます。"], steps: ["屋号または氏名。", "申告の方法：青色申告承認申請書を出していて e-Tax なら「青色65万円」。", "消費税：インボイス登録をしていなければ「免税事業者」。", "支払い方法：個人のお金・カードなら一番上（事業主借）。", "自宅で仕事：はいなら家賃などの按分を案内します。", "帳簿を始める年の1月1日の残高：事業用口座がなければ0。"], go: "setup" },
+          { h: "3. 毎月決まった支払いを登録", p: ["「初期設定」のステップ3で、家賃・携帯代・ネット代・サブスクなど毎月同じ支払いを登録すると、毎月自動で記帳されます。"], go: "setup" },
+          { h: "4. 請求書を出す人：発行者情報を入力", p: ["「初期設定」のステップ2で、氏名・登録番号・住所・振込先を入れておくと請求書に印字されます。"], go: "setup" },
         ] },
       { id: "daily", title: "毎日やること（1回1分）", time: "お金が動いたとき",
         items: [
@@ -140,9 +140,9 @@ window.GUIDE = {
       { id: "setup", title: "First-time setup (once, about 10 minutes)", time: "Day one",
         items: [
           { h: "1. Create an account and sign in", steps: ["On the sign-in screen enter your email and a password of 8+ characters.", "Tap “No account yet? Create one”. Use the same details from then on.", "On a phone, “Add to Home Screen” in the browser opens it like an app."] },
-          { h: "2. Answer the six setup questions", p: ["They appear on your first sign-in. When unsure, pick the recommended option; change them any time in Settings → “Run setup again”."], steps: ["Trade name or your name.", "How you file: blue return approved and e-Tax → “Blue return ¥650,000”.", "Consumption tax: not registered for invoices → “Tax-exempt”.", "How you pay: personal money or card → the first option (事業主借).", "Working from home: yes → rent and similar are split by business share.", "Balances on 1 January of your first year: 0 if you have no business account."], go: "settings" },
-          { h: "3. Register fixed monthly costs", p: ["Rent, phone, internet and subscriptions that are the same every month are recorded automatically once registered."], go: "entry", goLabel: "“Recurring entries” at the bottom of New transaction" },
-          { h: "4. Issuing invoices? Fill in your details", p: ["At the bottom of Invoices, enter your name, registration number, address and bank details so they print on every invoice."], go: "invoices" },
+          { h: "2. Answer the six setup questions", p: ["Your first sign-in opens the Setup page. When unsure, pick the recommended option; come back to Setup any time to change them."], steps: ["Trade name or your name.", "How you file: blue return approved and e-Tax → “Blue return ¥650,000”.", "Consumption tax: not registered for invoices → “Tax-exempt”.", "How you pay: personal money or card → the first option (事業主借).", "Working from home: yes → rent and similar are split by business share.", "Balances on 1 January of your first year: 0 if you have no business account."], go: "setup" },
+          { h: "3. Register fixed monthly costs", p: ["In step 3 of Setup, register rent, phone, internet and subscriptions that are the same every month; they are recorded automatically from then on."], go: "setup" },
+          { h: "4. Issuing invoices? Fill in your details", p: ["In step 2 of Setup, enter your name, registration number, address and bank details so they print on every invoice."], go: "setup" },
         ] },
       { id: "daily", title: "Every day (a minute each time)", time: "Whenever money moves",
         items: [

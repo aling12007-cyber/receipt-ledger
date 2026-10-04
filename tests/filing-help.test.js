@@ -97,7 +97,7 @@ test("how-to-use guide: same chapters in three languages, every link goes to a r
   const fs = await import("node:fs"), vm = await import("node:vm");
   const box = { window: {} };
   vm.runInNewContext(fs.readFileSync(new URL("../guide-content.js", import.meta.url), "utf8"), box);
-  const G = box.window.GUIDE, pages = ["summary", "entry", "journal", "ledger", "tb", "scan", "filing", "settings", "return", "ctax", "bank", "invoices", "guide"];
+  const G = box.window.GUIDE, pages = ["summary", "entry", "journal", "ledger", "tb", "scan", "filing", "settings", "return", "ctax", "bank", "invoices", "guide", "setup"];
   const shape = (l) => G[l].chapters.map((c) => c.id + ":" + c.items.length).join(",");
   assert.equal(shape("zh"), shape("ja"));
   assert.equal(shape("en"), shape("ja"));

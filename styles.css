@@ -555,3 +555,11 @@ a:hover{color:var(--ai-strong)}
   .main header.top .brand h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .main header.top .toolbar{flex-wrap:nowrap;flex:none;gap:6px}
 }
+
+/* 初期設定 page */
+.sp-head{display:flex;gap:14px;align-items:center}
+.sp-step{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--rule);color:var(--ink);text-decoration:none}
+.sp-step:first-child{border-top:0}
+.sp-step .grow{flex:1}
+.sp-step:hover .grow{color:var(--ai)}
+.sidenav button[data-tab="setup"]{--ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0'/%3E%3Ccircle cx='16' cy='6' r='2'/%3E%3Ccircle cx='10' cy='12' r='2'/%3E%3Ccircle cx='18' cy='18' r='2'/%3E%3C/svg%3E")}
