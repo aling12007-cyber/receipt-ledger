@@ -538,3 +538,20 @@ a:hover{color:var(--ai-strong)}
 .seal-sl i{font-style:italic;font-weight:500;font-size:.82em;margin:0 .04em;opacity:.9}
 .seal-lg.seal-sl{width:78px;font-size:1.45rem}
 @media (max-width:640px){.seal-lg.seal-sl{width:62px;font-size:1.2rem}}
+
+/* sign-in introduction */
+.auth-intro{margin:0;line-height:1.85;color:var(--ink);font-size:.95rem}
+.auth-feats{margin:0;padding:0;list-style:none;display:grid;gap:8px;font-size:.86rem;color:var(--muted);line-height:1.6}
+.auth-feats li{padding-left:16px;position:relative}
+.auth-feats li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:6px;border-radius:1px;background:var(--seal)}
+.auth-card{width:min(860px,100%)}
+/* language picker: buttons on wide screens, a compact select on phones */
+.langsel{display:none;width:auto;min-width:0;font-size:13px;padding:6px 8px}
+@media (max-width:959px){.main header.top .toolbar .langsel{display:block}}
+@media (max-width:959px){
+  .main header.top{flex-wrap:nowrap;align-items:center}
+  .main header.top .brand{min-width:0;flex:1 1 auto}
+  .main header.top .brand>div:last-child{min-width:0}
+  .main header.top .brand h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .main header.top .toolbar{flex-wrap:nowrap;flex:none;gap:6px}
+}

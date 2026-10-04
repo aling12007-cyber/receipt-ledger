@@ -10,7 +10,7 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon-180.png">
-<title>Smart Ledger — 青色申告の帳簿</title>
+<title>Smart Ledger — 個人事業主・フリーランスの帳簿</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho+B1:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -68,13 +68,15 @@
       <div class="langsw" role="group" aria-label="Language" style="align-self:flex-start">
         <button data-lang="en" aria-pressed="false">EN</button><button data-lang="ja" aria-pressed="false">日本語</button><button data-lang="zh" aria-pressed="false">中文</button>
       </div>
-      <p class="muted small" style="margin:0" data-i18n="authSub"></p>
+      <p class="auth-intro" data-i18n="authIntro"></p>
+      <ul class="auth-feats"><li data-i18n="authF1"></li><li data-i18n="authF2"></li><li data-i18n="authF3"></li><li data-i18n="authF4"></li></ul>
       <form id="authForm" class="stack" novalidate>
         <label class="f" for="aEmail"><span data-i18n="email"></span><input type="email" id="aEmail" autocomplete="email" required></label>
         <label class="f" for="aPass"><span data-i18n="password"></span><input type="password" id="aPass" autocomplete="current-password" minlength="8" required></label>
         <div class="row"><button class="btn primary" type="submit" id="aSubmit" data-i18n="signIn"></button><button class="btn ghost" type="button" id="aToggle" data-i18n="noAcct"></button></div>
         <p class="small" id="aMsg" style="margin:0"></p>
       </form>
+      <p class="muted small" style="margin:0" data-i18n="authSub"></p>
     </div>
   </div>
 </div>
@@ -124,6 +126,7 @@
         <button data-lang="ja" aria-pressed="false">日本語</button>
         <button data-lang="zh" aria-pressed="false">中文</button>
       </div>
+      <select id="langSel" class="langsel" aria-label="Language"><option value="ja">日本語</option><option value="zh">中文</option><option value="en">EN</option></select>
       <button class="btn ghost" id="signOut" data-i18n="signOut"></button>
       <label class="f" for="yearSel"><span data-i18n="yearLabel"></span>
         <select id="yearSel"></select>
@@ -511,6 +514,7 @@ function applyLang(){
   document.querySelectorAll("[data-read]").forEach(el=>el.textContent=Tips.read(el.dataset.read,lang));
   const qt=$("#qeTips");if(qt)delete qt.dataset.html;
   document.querySelectorAll(".langsw button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lang===lang));
+  {const ls=$("#langSel");if(ls)ls.value=lang}
   $("#lawList").innerHTML=t("law").map(x=>`<li>${x}</li>`).join("");
   $("#imgViewImg").alt=t("receiptImg");
   const fd=$("#fDoc").value;$("#fDoc").innerHTML=opts(["","has","none"],fd,k=>t(k?"fDoc_"+k:"all"));
@@ -519,6 +523,7 @@ function applyLang(){
   fillSettings();fillYears();renderBanners();renderQueue();render();
 }
 document.querySelectorAll(".langsw button").forEach(b=>b.onclick=()=>{lang=b.dataset.lang;try{localStorage.setItem("lang",lang)}catch(e){}applyLang()});
+$("#langSel").onchange=e=>{lang=e.target.value;try{localStorage.setItem("lang",lang)}catch(x){}applyLang()};
 
 let tTimer;
 function toast(msg){const el=$("#toast");el.textContent=msg;el.hidden=false;clearTimeout(tTimer);tTimer=setTimeout(()=>el.hidden=true,2600)}
@@ -2503,7 +2508,7 @@ function fillSettings(){
   $("#sHint").value=settings.hint||"";
   {let th="light";try{th=localStorage.getItem("theme")||"light"}catch(e){}$("#sTheme").innerHTML=opts(["light","dark","auto"],th,k=>t("th_"+k))}
   $("#sReadMode").innerHTML=opts(["auto","ai","local"],readMode(),k=>t("rm_"+k));$("#sReadModeBox").hidden=!aiEnabled;
-  $("#bizName").textContent=settings.name||"Smart Ledger";$("#sideBiz").textContent=settings.name||(lang==="en"?"Blue-return books":"青色申告の帳簿");
+  $("#bizName").textContent=settings.name||"Smart Ledger";$("#sideBiz").textContent=settings.name||t("eyebrow");
   renderBackupLast();
   try{renderRules()}catch(e){/* rule list is informational */}
 }

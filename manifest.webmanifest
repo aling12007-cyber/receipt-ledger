@@ -1,7 +1,7 @@
 {
   "name": "Smart Ledger",
   "short_name": "Smart Ledger",
-  "description": "青色申告のための帳簿。領収書の撮影から複式簿記、確定申告まで。",
+  "description": "個人事業主・フリーランスのための帳簿。レシート撮影から複式簿記、決算書、確定申告まで。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EEEEE8",
