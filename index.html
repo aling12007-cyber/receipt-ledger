@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho+B1:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/styles.css">
 <script src="/i18n.js"></script>
+<script src="/guide-content.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="/ocr.js"></script>
@@ -81,6 +82,7 @@
   <aside class="side" id="sideNav" aria-label="Menu">
     <div class="brand side-brand"><div class="seal" aria-hidden="true">青</div><div><div class="side-mark">Aoiro</div><b class="side-name" id="sideBiz">Aoiro</b></div></div>
     <nav class="sidenav">
+      <button data-tab="guide" data-i18n="navGuide"></button>
       <button data-tab="summary" data-i18n="navDash"></button>
       <div class="navgrp" data-i18n="navGrpDaily"></div>
       <button data-tab="scan" data-i18n="navReceipts"></button>
@@ -253,6 +255,7 @@
       <div class="row"><a class="btn primary" href="https://www.keisan.nta.go.jp/" target="_blank" rel="noopener" data-i18n="rtOpenNta"></a></div></div>
   </section>
 
+  <section data-panel="guide" hidden class="stack guide" id="guidePanel"></section>
   <section data-panel="bank" hidden class="stack">
     <div class="sheet pad stack">
       <h2 data-i18n="bkTitle"></h2>
@@ -524,7 +527,7 @@ function banner(key,kind,extra){bannerState.push({key,kind,extra:extra||""});ren
 function renderBanners(){$("#banners").innerHTML=bannerState.map(b=>`<div class="banner ${b.kind}">${esc(t(b.key)+b.extra)}</div>`).join("")}
 
 // ===== navigation: sidebar (wide screens), bottom bar + slide-in menu (phones); routes #/<page> =====
-const PAGES={summary:"navDash",entry:"tabEntry",journal:"tabJournal",ledger:"navLedger",tb:"navTB",scan:"navReceipts",filing:"navFiling",settings:"tabSettings",eval:"evTitle",return:"navReturn",ctax:"navCtax",bank:"navBank",invoices:"navInvoices"};
+const PAGES={summary:"navDash",entry:"tabEntry",journal:"tabJournal",ledger:"navLedger",tb:"navTB",scan:"navReceipts",filing:"navFiling",settings:"tabSettings",eval:"evTitle",return:"navReturn",ctax:"navCtax",bank:"navBank",invoices:"navInvoices",guide:"navGuide"};
 let curTab="summary";
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{showTab(b.dataset.tab);closeMenu()}));
 function showTab(tb,fromHash){
@@ -686,7 +689,7 @@ async function loadEntries(){
     out.push(...data);if(data.length<1000)break;
   }
   entries=out.map(fromRow);fillYears();carryForward();render();scheduleSync();runRecurring();
-  if(!settings.setupDone&&!entries.length&&!setupShown){setupShown=true;openSetup()}
+  if(!settings.setupDone&&!entries.length&&!setupShown){setupShown=true;if(curTab==="summary"&&!location.hash.match(/^#\/\w/))showTab("guide",true);openSetup()}
   if(!pendingChecked){pendingChecked=true;restorePending()}
 }
 async function saveEntry(d,opt){
@@ -1403,6 +1406,22 @@ async function restorePending(){
 window.addEventListener("online",()=>{toast(t("offBack"));if(queue.some(q=>q.status==="waiting"))pump()});
 window.addEventListener("offline",()=>toast(t("offNow")));
 if("serviceWorker" in navigator&&!navigator.webdriver&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("/sw.js").catch(()=>{});
+// ===== 使い方: a complete walkthrough for first-time users (content in guide-content.js) =====
+function renderGuide(){
+  const box=$("#guidePanel");if(!box||typeof GUIDE==="undefined"||box.dataset.lang===lang)return;
+  box.dataset.lang=lang;
+  const G=GUIDE[lang]||GUIDE.ja;
+  const md=x=>esc(x).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+  const tbl=rows=>`<div class="tablewrap"><table class="jtable gd-t"><tbody>${rows.map(([a,b])=>`<tr><th scope="row">${md(a)}</th><td>${md(b)}</td></tr>`).join("")}</tbody></table></div>`;
+  const item=it=>`<div class="gd-item"><h3>${md(it.h)}</h3>${(it.p||[]).map(x=>`<p>${md(x)}</p>`).join("")}${it.steps?`<ol class="gd-steps">${it.steps.map(x=>`<li>${md(x)}</li>`).join("")}</ol>`:""}${it.table?tbl(it.table):""}
+    ${it.go?`<button class="btn small gd-go" data-gdgo="${it.go}">${esc(it.goLabel||t("gdOpen",{p:t(PAGES[it.go])}))}</button>`:""}</div>`;
+  box.innerHTML=`<div class="sheet pad stack gd-hero"><h2>${md(G.title)}</h2><p class="gd-lead">${md(G.lead)}</p>
+      <nav class="gd-toc" aria-label="${esc(t("gdToc"))}"><ol>${G.chapters.map(c=>`<li><a href="#gd-${c.id}" data-gdjump="${c.id}">${md(c.title)}</a> <span class="small muted">${md(c.time)}</span></li>`).join("")}</ol></nav></div>
+    <div class="sheet pad stack"><h2>${md(G.year.title)}</h2>${tbl(G.year.rows)}</div>
+    ${G.chapters.map((c,i)=>`<section class="sheet pad stack gd-ch" id="gd-${c.id}"><div class="gd-head"><span class="gd-no">${i+1}</span><div><h2>${md(c.title)}</h2><div class="small muted">${md(c.time)}</div></div></div>${c.lead?`<p class="gd-lead">${md(c.lead)}</p>`:""}${c.items.map(item).join("")}</section>`).join("")}`;
+  box.querySelectorAll("[data-gdgo]").forEach(b=>b.onclick=()=>showTab(b.dataset.gdgo));
+  box.querySelectorAll("[data-gdjump]").forEach(a=>a.onclick=e=>{e.preventDefault();const el=document.getElementById("gd-"+a.dataset.gdjump);if(el)el.scrollIntoView({behavior:"smooth",block:"start"})});
+}
 // ===== 按分 memory: the business share last used for this shop (and account) =====
 function lastRatio(vendor,debit){
   const n=DocMerchant.normalize(vendor||"").normalized;if(!n)return null;
@@ -2509,6 +2528,7 @@ function render(){
   if(a==="ctax")renderCtax();
   if(a==="bank")renderBank();
   if(a==="invoices")renderInvoices();
+  if(a==="guide")renderGuide();
 }
 {const m=location.hash.match(/^#\/(\w+)/);let tb=m&&m[1];try{tb=tb||localStorage.getItem("tab")}catch(e){}showTab(tb||"summary",true)}
 applyLang();

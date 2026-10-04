@@ -5,7 +5,7 @@
 const CACHE = "rl-shell-v1";
 const CDN = /^https:\/\/(cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com|fonts\.(googleapis|gstatic)\.com)\//;
 
-self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/index.html", "/styles.css", "/i18n.js", "/manifest.webmanifest", "/icon-192.png"])).catch(() => {})); self.skipWaiting(); });
+self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["/", "/index.html", "/styles.css", "/i18n.js", "/guide-content.js", "/manifest.webmanifest", "/icon-192.png"])).catch(() => {})); self.skipWaiting(); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 
 self.addEventListener("fetch", (e) => {

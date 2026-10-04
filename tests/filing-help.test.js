@@ -92,3 +92,14 @@ test("account help covers every expense account in three languages", () => {
   for (const a of ["旅費交通費", "通信費", "消耗品費", "会議費", "接待交際費", "地代家賃", "水道光熱費", "租税公課", "雑費", "事業主借"]) for (const l of ["ja", "zh", "en"]) assert.ok(A.text(a, l).length > 5, a + l);
   assert.equal(A.text("unknown", "ja"), "");
 });
+
+test("how-to-use guide: same chapters in three languages, every link goes to a real page", async () => {
+  const fs = await import("node:fs"), vm = await import("node:vm");
+  const box = { window: {} };
+  vm.runInNewContext(fs.readFileSync(new URL("../guide-content.js", import.meta.url), "utf8"), box);
+  const G = box.window.GUIDE, pages = ["summary", "entry", "journal", "ledger", "tb", "scan", "filing", "settings", "return", "ctax", "bank", "invoices", "guide"];
+  const shape = (l) => G[l].chapters.map((c) => c.id + ":" + c.items.length).join(",");
+  assert.equal(shape("zh"), shape("ja"));
+  assert.equal(shape("en"), shape("ja"));
+  for (const l of ["ja", "zh", "en"]) for (const c of G[l].chapters) for (const it of c.items) if (it.go) assert.ok(pages.includes(it.go), l + " " + it.go);
+});
