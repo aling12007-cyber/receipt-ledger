@@ -24,7 +24,7 @@ fs.mkdirSync(rel(".check"), { recursive: true });
 fs.writeFileSync(rel(".check/index.inline.js"), inline.join("\n;\n"));
 
 // 3) modules parse (browser UMD files as scripts, ES modules via node --check semantics)
-const files = ["books.js", "filing.js", "ocr.js", "imports.js", "tips.js", ...["engine", "document-intelligence", "tax"].flatMap((d) => fs.readdirSync(rel(d)).filter((f) => f.endsWith(".js")).map((f) => d + "/" + f))];
+const files = ["books.js", "filing.js", "ocr.js", "imports.js", "tips.js", "sw.js", "i18n.js", ...["engine", "document-intelligence", "tax"].flatMap((d) => fs.readdirSync(rel(d)).filter((f) => f.endsWith(".js")).map((f) => d + "/" + f))];
 for (const f of files) { try { new vm.Script(fs.readFileSync(rel(f), "utf8"), { filename: f }); } catch (e) { errors.push(`${f}: ${e.message}`); } }
 
 // 4) manifest
@@ -32,11 +32,12 @@ try { JSON.parse(fs.readFileSync(rel("manifest.webmanifest"), "utf8")); } catch 
 
 // 5) translations: every t("key") / data-i18n="key" exists in en, ja and zh
 const app = inline.join("\n");
-const start = app.indexOf("const I18N=");
-if (start < 0) errors.push("I18N dictionary not found");
+const i18nSrc = fs.readFileSync(rel("i18n.js"), "utf8");
+if (!/window\.I18N=/.test(i18nSrc) || !/const I18N=window\.I18N/.test(app)) errors.push("I18N dictionary not found (i18n.js / index.html)");
 else {
-  const end = app.indexOf("\n};", start);
-  const I18N = vm.runInNewContext("(" + app.slice(start + "const I18N=".length, end + 2) + ")");
+  const sandbox = { window: {} };
+  vm.runInNewContext(i18nSrc, sandbox);
+  const I18N = sandbox.window.I18N;
   const used = new Set([...app.matchAll(/\bt\("([A-Za-z0-9_]+)"\s*[,)]/g)].map((m) => m[1]).concat([...html.matchAll(/data-i18n(?:-ph)?="([A-Za-z0-9_]+)"/g)].map((m) => m[1])));
   for (const k of used) for (const lang of ["en", "ja", "zh"]) if (!(k in I18N[lang])) errors.push(`translation "${k}" missing in ${lang}`);
   for (const k of Object.keys(I18N.en)) for (const lang of ["ja", "zh"]) if (!(k in I18N[lang])) errors.push(`translation "${k}" (en) missing in ${lang}`);

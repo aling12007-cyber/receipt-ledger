@@ -77,3 +77,18 @@ test("balance sheet: closing balances follow from the year's records (incl. book
   assert.equal(bs2.motoire, 10000 + 274000 + 20000);
   assert.equal(bs2.diff, 0);
 });
+
+test("data health: odd account or business share for a supplier, months without expenses", () => {
+  const v = (id, date, debit, ratio) => ex(id, date, 3300, { vendor: "テスト通信", debit, bizRatio: ratio });
+  const entries = [v("a", "2026-01-05", "通信費", 50), v("b", "2026-02-05", "通信費", 50), v("c", "2026-03-05", "雑費", 50), v("d", "2026-05-05", "通信費", 100)];
+  const out = P.run({ entries, year: 2026, today: "2026-07-10", totalOf, deductionsEntered: true, homeOffice: false });
+  assert.deepEqual(out.find((x) => x.code === "vendorAccounts").ids, ["c"]);
+  assert.deepEqual(out.find((x) => x.code === "vendorRatio").ids, ["d"]);
+  assert.deepEqual(out.find((x) => x.code === "emptyMonths").months, [4, 6]);
+});
+
+test("account help covers every expense account in three languages", () => {
+  const A = load("engine/account-help.js");
+  for (const a of ["旅費交通費", "通信費", "消耗品費", "会議費", "接待交際費", "地代家賃", "水道光熱費", "租税公課", "雑費", "事業主借"]) for (const l of ["ja", "zh", "en"]) assert.ok(A.text(a, l).length > 5, a + l);
+  assert.equal(A.text("unknown", "ja"), "");
+});

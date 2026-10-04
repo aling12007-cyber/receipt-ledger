@@ -42,6 +42,17 @@
     add("noReceipt", "info", exp.filter((e) => !e.assetId && !String(e.id).startsWith("rec-") && !String(e.id).startsWith("inv-")), "journal");
     add("mealNote", "info", exp.filter((e) => /会議費|接待交際費/.test(e.debit) && !String(e.memo || "").trim() && !/(打合|打ち合|会食|商談|ミーティング)/.test(String(e.items || ""))), "journal");
     if (c.homeOffice !== false) add("fullBiz", "info", exp.filter((e) => MIXED.includes(e.debit) && (e.bizRatio ?? 100) === 100), "journal");
+    // the same shop under different accounts / business shares: often a slip (the less used ones are listed)
+    const byVendor = new Map();
+    for (const e of exp) { const k = Mer.normalize(e.vendor || "").normalized; if (!k) continue; if (!byVendor.has(k)) byVendor.set(k, []); byVendor.get(k).push(e); }
+    const odd = (list, key) => { const cnt = {}; for (const e of list) cnt[key(e)] = (cnt[key(e)] || 0) + 1; const keys = Object.keys(cnt); if (keys.length < 2) return []; const top = keys.sort((a, b) => cnt[b] - cnt[a])[0]; return list.filter((e) => String(key(e)) !== top); };
+    const mixedAcc = [], mixedRatio = [];
+    for (const list of byVendor.values()) { if (list.length < 2) continue; mixedAcc.push(...odd(list, (e) => e.debit)); mixedRatio.push(...odd(list.filter((e) => MIXED.includes(e.debit)), (e) => e.bizRatio ?? 100)); }
+    add("vendorAccounts", "info", mixedAcc, "journal");
+    add("vendorRatio", "info", mixedRatio, "journal");
+    // months without any expense, up to last month (a forgotten month of receipts?)
+    const lastMonth = String(c.year) === c.today.slice(0, 4) ? +c.today.slice(5, 7) - 1 : String(c.year) < c.today.slice(0, 4) ? 12 : 0;
+    if (exp.length) { const have = new Set(exp.map((e) => +String(e.date).slice(5, 7))); const missing = []; for (let m = 1; m <= lastMonth; m++) if (!have.has(m)) missing.push(m); if (missing.length) out.push({ code: "emptyMonths", level: "info", n: missing.length, tab: "scan", ids: [], months: missing }); }
     if (c.bestCtax && c.ctax && c.ctax !== "exempt" && c.ctax !== c.bestCtax) add("ctaxMethod", "info", 1, "ctax");
     const order = { error: 0, warn: 1, info: 2 };
     return out.sort((a, b) => order[a.level] - order[b.level]);
