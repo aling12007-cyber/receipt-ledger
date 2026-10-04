@@ -56,9 +56,9 @@
     // lines longer than 75 octets are folded (RFC 5545), counting UTF-8 bytes so Japanese text is not cut too late
     const bytes = (ch) => { const c = ch.codePointAt(0) || 0; return c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4; };
     const fold = (l) => { const out = []; let cur = "", n = 0; for (const ch of l) { const b = bytes(ch); if (n + b > 74) { out.push(cur); cur = " "; n = 1; } cur += ch; n += b; } out.push(cur); return out.join("\r\n"); };
-    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Aoiro//Tax deadlines//JA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:税金の期限"];
+    const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Smart Ledger//Tax deadlines//JA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "X-WR-CALNAME:税金の期限"];
     for (const e of events) {
-      lines.push("BEGIN:VEVENT", `UID:${e.uid}@aoiro`, `DTSTAMP:${now}`, `DTSTART;VALUE=DATE:${d8(e.date)}`, `DTEND;VALUE=DATE:${next(e.date)}`,
+      lines.push("BEGIN:VEVENT", `UID:${e.uid}@smart-ledger`, `DTSTAMP:${now}`, `DTSTART;VALUE=DATE:${d8(e.date)}`, `DTEND;VALUE=DATE:${next(e.date)}`,
         `SUMMARY:${esc(e.title)}`, ...(e.description ? [`DESCRIPTION:${esc(e.description)}`] : []), ...(e.url ? [`URL:${e.url}`] : []), "TRANSP:TRANSPARENT");
       for (const tr of ["-P7D", "-P1D"]) lines.push("BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${esc(e.title)}`, `TRIGGER:${tr}`, "END:VALARM");
       lines.push("END:VEVENT");

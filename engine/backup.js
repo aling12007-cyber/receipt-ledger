@@ -32,7 +32,7 @@
     return { ...b, counts: { entries: b.entries.length, knowledge: b.knowledge.length }, checksum: hash(body(b)) };
   }
   /** @param {string} name @param {string} [date] */
-  const fileName = (name, date) => `${(String(name || "").replace(/[\\/:*?"<>|\s]+/g, "_") || "aoiro").slice(0, 40)}_${(date || new Date().toISOString()).slice(0, 10)}.receiptledger`;
+  const fileName = (name, date) => `${(String(name || "").replace(/[\\/:*?"<>|\s]+/g, "_") || "smart-ledger").slice(0, 40)}_${(date || new Date().toISOString()).slice(0, 10)}.receiptledger`;
 
   /** @param {string} text @returns {{ ok: boolean, errors: string[], data: any }} */
   function parse(text) {

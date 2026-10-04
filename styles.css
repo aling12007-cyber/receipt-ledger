@@ -1,4 +1,4 @@
-/* Aoiro — styles. The last block ("藍と和紙") sets the look; earlier rules are the layout. */
+/* Smart Ledger — styles. The last block ("藍と和紙") sets the look; earlier rules are the layout. */
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
 img{max-width:100%}
@@ -433,7 +433,7 @@ dialog .hd{background:var(--head);border-radius:var(--r-card) var(--r-card) 0 0}
 .jp{display:block;font-size:.72rem;color:var(--muted)}
 
 /* ======================================================================================================
-   Aoiro「藍と和紙」 — indigo-dyed ink on washi. Quiet paper surfaces, indigo for everything you act on,
+   Smart Ledger「藍と和紙」 — indigo-dyed ink on washi. Quiet paper surfaces, indigo for everything you act on,
    and one vermilion seal (印) as the only strong colour: the brand mark. Headings in Mincho like a
    printed ledger, body in Zen Kaku Gothic, amounts in tabular IBM Plex.
    ====================================================================================================== */
@@ -532,3 +532,9 @@ a:hover{color:var(--ai-strong)}
 .gd-go{align-self:flex-start}
 .gd-ch{scroll-margin-top:80px}
 @media (max-width:640px){.gd-t th{width:40%}.gd-hero h2{font-size:1.25rem}}
+
+/* S&L monogram in the seal: two capitals joined by an italic ampersand (S and L, for the two of them) */
+.seal-sl{width:46px;font-family:"Shippori Mincho B1","Noto Serif JP","Noto Serif CJK JP",Georgia,serif;font-size:.86rem;letter-spacing:-.02em;gap:0;display:flex;align-items:center;justify-content:center}
+.seal-sl i{font-style:italic;font-weight:500;font-size:.82em;margin:0 .04em;opacity:.9}
+.seal-lg.seal-sl{width:78px;font-size:1.45rem}
+@media (max-width:640px){.seal-lg.seal-sl{width:62px;font-size:1.2rem}}

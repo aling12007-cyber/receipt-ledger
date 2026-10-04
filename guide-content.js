@@ -1,4 +1,4 @@
-// Aoiro — 使い方 / 使用方法 / How to use: a complete walkthrough for someone who has never used the app and knows
+// Smart Ledger — 使い方 / 使用方法 / How to use: a complete walkthrough for someone who has never used the app and knows
 // no accounting. Shown on the first page of the menu. Plain data: chapters → items (heading, text, steps, a page to
 // open, a small table). **bold** is allowed in text. Exposes window.GUIDE.
 window.GUIDE = {

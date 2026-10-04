@@ -6,11 +6,11 @@
 <meta name="theme-color" content="#18263A">
 <script>/* appearance: white by default; dark or "follow the device" only when chosen in Settings */try{var th=localStorage.getItem("theme")||"light";if(th!=="auto")document.documentElement.setAttribute("data-theme",th)}catch(e){document.documentElement.setAttribute("data-theme","light")}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Aoiro">
+<meta name="apple-mobile-web-app-title" content="Smart Ledger">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon-180.png">
-<title>Aoiro 青色 — 青色申告の帳簿</title>
+<title>Smart Ledger — 青色申告の帳簿</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Shippori+Mincho+B1:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -62,9 +62,9 @@
 <body>
 <div class="auth" id="authView" hidden>
   <div class="auth-card">
-    <div class="auth-side" aria-hidden="true"><div class="seal seal-lg">青</div><p class="auth-tate">記帳から、確定申告まで。</p></div>
+    <div class="auth-side" aria-hidden="true"><div class="seal seal-lg seal-sl">S<i>&amp;</i>L</div><p class="auth-tate">記帳から、確定申告まで。</p></div>
     <div class="auth-main stack">
-      <div class="wordmark"><h1>Aoiro</h1><span data-i18n="eyebrow"></span></div>
+      <div class="wordmark"><h1>Smart Ledger</h1><span data-i18n="eyebrow"></span></div>
       <div class="langsw" role="group" aria-label="Language" style="align-self:flex-start">
         <button data-lang="en" aria-pressed="false">EN</button><button data-lang="ja" aria-pressed="false">日本語</button><button data-lang="zh" aria-pressed="false">中文</button>
       </div>
@@ -80,7 +80,7 @@
 </div>
 <div class="app" id="appView" hidden>
   <aside class="side" id="sideNav" aria-label="Menu">
-    <div class="brand side-brand"><div class="seal" aria-hidden="true">青</div><div><div class="side-mark">Aoiro</div><b class="side-name" id="sideBiz">Aoiro</b></div></div>
+    <div class="brand side-brand"><div class="seal seal-sl" aria-hidden="true">S<i>&amp;</i>L</div><div><div class="side-mark">Smart Ledger</div><b class="side-name" id="sideBiz">Smart Ledger</b></div></div>
     <nav class="sidenav">
       <button data-tab="guide" data-i18n="navGuide"></button>
       <button data-tab="summary" data-i18n="navDash"></button>
@@ -112,10 +112,10 @@
   <div class="main wrap">
   <header class="top">
     <div class="brand">
-      <div class="seal" aria-hidden="true">青</div>
+      <div class="seal seal-sl" aria-hidden="true">S<i>&amp;</i>L</div>
       <div>
-        <div class="eyebrow">Aoiro</div>
-        <h1 id="bizName">Aoiro</h1>
+        <div class="eyebrow">Smart Ledger</div>
+        <h1 id="bizName">Smart Ledger</h1>
       </div>
     </div>
     <div class="toolbar">
@@ -2503,7 +2503,7 @@ function fillSettings(){
   $("#sHint").value=settings.hint||"";
   {let th="light";try{th=localStorage.getItem("theme")||"light"}catch(e){}$("#sTheme").innerHTML=opts(["light","dark","auto"],th,k=>t("th_"+k))}
   $("#sReadMode").innerHTML=opts(["auto","ai","local"],readMode(),k=>t("rm_"+k));$("#sReadModeBox").hidden=!aiEnabled;
-  $("#bizName").textContent=settings.name||"Aoiro";$("#sideBiz").textContent=settings.name||(lang==="en"?"Blue-return books":"青色申告の帳簿");
+  $("#bizName").textContent=settings.name||"Smart Ledger";$("#sideBiz").textContent=settings.name||(lang==="en"?"Blue-return books":"青色申告の帳簿");
   renderBackupLast();
   try{renderRules()}catch(e){/* rule list is informational */}
 }
