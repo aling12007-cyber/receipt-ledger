@@ -1,4 +1,4 @@
-/* Receipt Ledger — styles (moved out of index.html). */
+/* Aoiro — styles. The last block ("藍と和紙") sets the look; earlier rules are the layout. */
 :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0}
 img{max-width:100%}
@@ -431,3 +431,86 @@ dialog .hd{background:var(--head);border-radius:var(--r-card) var(--r-card) 0 0}
 .langsw button:focus-visible{outline:2px solid var(--ai);outline-offset:-2px}
 .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 .jp{display:block;font-size:.72rem;color:var(--muted)}
+
+/* ======================================================================================================
+   Aoiro「藍と和紙」 — indigo-dyed ink on washi. Quiet paper surfaces, indigo for everything you act on,
+   and one vermilion seal (印) as the only strong colour: the brand mark. Headings in Mincho like a
+   printed ledger, body in Zen Kaku Gothic, amounts in tabular IBM Plex.
+   ====================================================================================================== */
+:root{
+  --paper:#EEEEE8; --sheet:#FBFBF8; --ink:#1A2233; --muted:#5F6672; --rule:#DEDDD5; --rule-strong:#C6C5BB;
+  --ai:#1E3A5F; --ai-strong:#142B48; --ai-soft:#E5E9EE; --shu:#B03A2E; --shu-soft:#F6E6E2; --ok:#2E6A4E; --ok-soft:#E2EEE6; --warn:#946711; --warn-soft:#F5EDD9;
+  --nav:#18263A; --nav-ink:#DCE1E8; --nav-muted:#8C96A4; --nav-hover:#20324A; --nav-active:#283D58;
+  --head:#F3F2EC; --shadow:none; --seal:#B5352A;
+  --f-display:"Shippori Mincho B1","Noto Serif JP","Noto Serif CJK JP","Noto Serif TC","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-body:"Zen Kaku Gothic New","Noto Sans JP","Noto Sans CJK JP","Noto Sans TC","Hiragino Sans","Yu Gothic UI",system-ui,sans-serif;
+  --f-num:"IBM Plex Sans","Zen Kaku Gothic New",system-ui,sans-serif;
+  --r:4px; --r-card:6px;
+}
+:root:lang(zh-Hant){--f-display:"Noto Serif TC","Shippori Mincho B1","Noto Serif CJK TC",serif;--f-body:"Noto Sans TC","Zen Kaku Gothic New","PingFang TC","Microsoft JhengHei",system-ui,sans-serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11151C; --sheet:#181E27; --ink:#E4E7EC; --muted:#98A1AE; --rule:#262E3A; --rule-strong:#3A4452;
+  --ai:#9DB4D4; --ai-strong:#B9CBE3; --ai-soft:#1D2838; --shu:#E48A7C; --shu-soft:#3A2522; --ok:#6CBF95; --ok-soft:#18302A; --warn:#DDB565; --warn-soft:#332A1A;
+  --nav:#0D131C; --nav-ink:#D6DCE4; --nav-muted:#7D8796; --nav-hover:#152031; --nav-active:#1C2B40; --head:#1C232D; --seal:#B5352A}}
+:root[data-theme="dark"]{
+  --paper:#11151C; --sheet:#181E27; --ink:#E4E7EC; --muted:#98A1AE; --rule:#262E3A; --rule-strong:#3A4452;
+  --ai:#9DB4D4; --ai-strong:#B9CBE3; --ai-soft:#1D2838; --shu:#E48A7C; --shu-soft:#3A2522; --ok:#6CBF95; --ok-soft:#18302A; --warn:#DDB565; --warn-soft:#332A1A;
+  --nav:#0D131C; --nav-ink:#D6DCE4; --nav-muted:#7D8796; --nav-hover:#152031; --nav-active:#1C2B40; --head:#1C232D; --seal:#B5352A}
+/* washi: a faint fibre texture on the page only (cards stay clean) */
+body{background-color:var(--paper);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .33 0 0 0 0 .28 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");font-feature-settings:"palt" 0}
+:root[data-theme="dark"] body{background-image:none}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body{background-image:none}}
+/* type: Mincho headings like a printed ledger */
+h1,h2,.pagetitle,dialog .hd h3{font-family:var(--f-display);font-weight:700;letter-spacing:.02em}
+h2{font-size:1.14rem}
+h3{font-family:var(--f-body);font-weight:700}
+.pagetitle{font-size:1.55rem;margin:24px 0 18px}
+.eyebrow{text-transform:none;letter-spacing:.04em}
+/* the seal (印): vermilion square with a Mincho 青 — the one strong mark */
+.seal{width:38px;height:38px;flex:none;display:grid;place-items:center;background:var(--seal);color:#FFF8F2;border-radius:5px;font-family:var(--f-display);font-weight:700;font-size:1.25rem;line-height:1;box-shadow:inset 0 0 0 2px rgba(255,255,255,.22),inset 0 0 0 4px var(--seal),inset 0 0 0 5px rgba(255,255,255,.35)}
+.seal-lg{width:64px;height:64px;font-size:2.1rem;border-radius:7px}
+/* sidebar: 勝色 (dark indigo); the current page gets a vermilion tick */
+.side-brand{padding:18px 18px 16px;gap:12px}
+.side-mark{font-family:var(--f-display);font-weight:700;color:var(--nav-muted);font-size:.8rem;letter-spacing:.14em}
+.side-name{font-family:var(--f-body);font-weight:700;font-size:.95rem}
+.sidenav .navgrp{font-size:.74rem;letter-spacing:.06em;padding:18px 12px 6px}
+.sidenav button{border-radius:4px}
+.sidenav button[aria-current="page"]{background:var(--nav-active);box-shadow:inset 3px 0 0 var(--seal)}
+.sidenav button:focus-visible{outline-color:#9DB4D4}
+/* surfaces: paper sheets with hairline edges, no drop shadows */
+.sheet,.kpi{border-color:var(--rule);box-shadow:none}
+.kpi{background:var(--sheet)}
+.kpi .v{font-weight:600;letter-spacing:-.01em}
+th{background:var(--head);color:var(--muted);letter-spacing:.04em}
+.filters{background:var(--head)}
+.btn{border-radius:var(--r)}
+.btn.primary{box-shadow:none}
+input,select,textarea{background:var(--sheet)}
+input:hover,select:hover,textarea:hover{border-color:#9AA6B6}
+dialog{box-shadow:0 24px 60px rgba(20,30,48,.28)}
+.chip{border-radius:3px}
+.chip.ok{color:var(--ok);background:var(--ok-soft)}
+.note.info{border-color:#C9D3DF}
+.bar i.s{background:var(--ai)}.bar i.e{background:#C97C70}
+.bottombar button[aria-current="page"],.bottombar button.on{color:var(--ai)}
+/* sign-in: an indigo panel with the seal and a vertical line of text, the form on paper */
+.auth{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px}
+.auth-card{width:min(760px,100%);display:grid;grid-template-columns:200px minmax(0,1fr);background:var(--sheet);border:1px solid var(--rule);border-radius:8px;overflow:hidden;box-shadow:0 30px 60px -30px rgba(20,30,48,.35)}
+.auth-side{background:var(--nav);color:#E8ECF1;display:flex;flex-direction:column;align-items:center;gap:22px;padding:32px 16px}
+.auth-tate{writing-mode:vertical-rl;font-family:"Shippori Mincho B1","Noto Serif JP","Noto Serif CJK JP",serif;font-size:1.35rem;letter-spacing:.32em;margin:0;line-height:1.9;color:#E8ECF1}
+.auth-main{padding:36px 36px 32px;gap:18px}
+.wordmark h1{font-family:var(--f-display);font-size:2.6rem;letter-spacing:.06em;line-height:1;color:var(--ai)}
+.wordmark span{display:block;margin-top:8px;color:var(--muted);font-size:.9rem;letter-spacing:.06em}
+@media (max-width:640px){
+  .auth{place-items:start center;padding:0}
+  .auth-card{grid-template-columns:1fr;border-radius:0;border:0;min-height:100vh;min-height:100dvh;box-shadow:none;align-content:start}
+  .auth-side{flex-direction:row;justify-content:flex-start;gap:16px;padding:28px 20px 22px}
+  .auth-tate{writing-mode:horizontal-tb;font-size:1.05rem;letter-spacing:.14em}
+  .seal-lg{width:52px;height:52px;font-size:1.7rem}
+  .auth-main{padding:26px 20px 32px}
+  .wordmark h1{font-size:2.2rem}
+}
+@media (prefers-reduced-motion:no-preference){.auth-card{animation:aoiro-in .5s ease-out both}}
+@keyframes aoiro-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+a{color:var(--ai);text-underline-offset:3px;text-decoration-thickness:1px}
+a:hover{color:var(--ai-strong)}
